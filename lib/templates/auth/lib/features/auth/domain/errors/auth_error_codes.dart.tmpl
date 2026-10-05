@@ -1,0 +1,44 @@
+// ─────────────────────────────────────────────────────────────
+// AuthErrorCodes
+// Codes carried by AuthException / AuthFailure in the auth feature.
+// They are the app's own vocabulary, independent of the auth provider:
+// the data layer translates the provider's errors into them, and the
+// presentation layer maps each one to a translated message.
+// ─────────────────────────────────────────────────────────────
+
+/// Error codes of the auth feature.
+abstract final class AuthErrorCodes {
+  /// Wrong email or password, or the account does not exist.
+  static const String invalidCredentials = 'invalidCredentials';
+
+  /// The email address is badly formatted.
+  static const String invalidEmail = 'invalidEmail';
+
+  /// The account was disabled.
+  static const String userDisabled = 'userDisabled';
+
+  /// Sign-up with an email that already has an account.
+  static const String emailAlreadyInUse = 'emailAlreadyInUse';
+
+  /// The password does not meet the minimum requirements.
+  static const String weakPassword = 'weakPassword';
+
+  /// Too many failed attempts; sign-in is blocked for a while.
+  static const String tooManyRequests = 'tooManyRequests';
+
+  /// The request could not reach the server.
+  static const String network = 'network';
+
+  /// The sign-in method is not enabled.
+  static const String providerDisabled = 'providerDisabled';
+
+  /// The email already has an account with another sign-in method.
+  static const String accountExistsWithDifferentProvider =
+      'accountExistsWithDifferentProvider';
+
+  /// The user closed the Google sign-in dialog. Not shown as an error.
+  static const String cancelled = 'cancelled';
+
+  /// Google sign-in failed (misconfiguration, missing ID token, etc.).
+  static const String googleSignInFailed = 'googleSignInFailed';
+}

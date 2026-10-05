@@ -1,0 +1,30 @@
+// ─────────────────────────────────────────────────────────────
+// UseCaseInter (contract)
+// Every use case in the domain layer implements this contract.
+// Results are returned as Either<Failure, T> (dartz) instead of
+// throwing, so errors are part of the return type.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
+
+/// Contract for a use case: a single business operation.
+///
+/// [ReturnType] is the value returned on success and [ParamsType] is the
+/// input the operation needs. Use [NoParams] when it needs none.
+///
+/// Because it defines `call`, a use case can be invoked like a function:
+/// `await getSongs(NoParams())`.
+abstract interface class UseCaseInter<ReturnType, ParamsType> {
+  /// Runs the use case with [params].
+  ///
+  /// Returns a [Failure] on the left side or the result on the right side.
+  Future<Either<Failure, ReturnType>> call(ParamsType params);
+}
+
+/// Parameter type for use cases that do not need any input.
+class NoParams extends Equatable {
+  @override
+  List<Object> get props => [];
+}

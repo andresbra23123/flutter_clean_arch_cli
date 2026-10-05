@@ -1,0 +1,24 @@
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/core/theme/theme.dart';
+import 'package:flutter/material.dart';
+
+/// Root widget of {{appTitle}}.
+///
+/// Configures the global [MaterialApp]: navigation ([AppRouter]), theme
+/// and localization.
+class App extends StatelessWidget {
+  /// Creates the root widget.
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: AppRouter.instance,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    );
+  }
+}

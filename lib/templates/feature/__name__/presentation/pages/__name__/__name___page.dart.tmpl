@@ -1,0 +1,99 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Page
+// Main screen of the {{nameWords}} feature.
+// {{Name}}Page provides the BLoC; {{Name}}View builds the UI from its states.
+// TODO({{todoTag}}): Customize the UI to match the design.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/features/{{name}}/presentation/presentation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+/// Entry point of the {{nameWords}} screen.
+///
+/// Creates the [{{Name}}Bloc], requests the data right away and shows
+/// [{{Name}}View].
+class {{Name}}Page extends StatelessWidget {
+  /// Creates the {{nameWords}} page.
+  const {{Name}}Page({super.key});
+
+  /// Route path of this page, registered in AppRouter.
+  static const String routeName = AppRoutes.{{nameCamel}};
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      // Create the BLoC and trigger the first data fetch.
+      create: (_) => getIt<{{Name}}Bloc>()..add(const Get{{Name}}Event()),
+      child: const {{Name}}View(),
+    );
+  }
+}
+
+/// UI of the {{nameWords}} screen. Reads the [{{Name}}Bloc] provided by [{{Name}}Page].
+class {{Name}}View extends StatelessWidget {
+  /// Creates the {{nameWords}} view.
+  const {{Name}}View({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        // TODO({{todoTag}}): Update the title to match the feature.
+        title: const Text('{{nameTitle}}'),
+      ),
+      body: BlocConsumer<{{Name}}Bloc, {{Name}}State>(
+        // Side effects that must run once per state (snackbars, navigation).
+        listener: (context, state) {
+          if (state is {{Name}}Error) {
+            // TODO({{todoTag}}): Customize the error handling.
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          // TODO({{todoTag}}): Handle side effects of other states.
+          // Example: navigate after success (go_router)
+          // if (state is {{Name}}Loaded) {
+          //   context.goNamed('home');
+          // }
+        },
+        // Widgets for the current state.
+        builder: (context, state) {
+          if (state is {{Name}}Loading) {
+            // TODO({{todoTag}}): Customize the loading indicator.
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state is {{Name}}Loaded) {
+            return {{Name}}Widget(entity: state.entity);
+          }
+
+          if (state is {{Name}}Error) {
+            return {{Name}}ErrorView(
+              message: state.message,
+              // Retry: dispatch the event again.
+              onRetry: () =>
+                  context.read<{{Name}}Bloc>().add(const Get{{Name}}Event()),
+            );
+          }
+
+          // {{Name}}Initial: shown only for an instant, because {{Name}}Page
+          // dispatches Get{{Name}}Event as soon as the BLoC is created.
+          return const Center(
+            child: Text('Press the button to load data.'),
+          );
+        },
+      ),
+      // TODO({{todoTag}}): Add a FAB or other actions as needed.
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () => context.read<{{Name}}Bloc>().add(const Get{{Name}}Event()),
+      //   child: const Icon(Icons.refresh),
+      // ),
+    );
+  }
+}

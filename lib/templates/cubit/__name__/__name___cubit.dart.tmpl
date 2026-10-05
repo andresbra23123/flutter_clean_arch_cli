@@ -1,0 +1,30 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Cubit
+// Methods called by the UI → call use cases → emit states.
+// TODO({{todoTag}}): Describe what this Cubit manages.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part '{{name}}_state.dart';
+
+/// Manages the {{nameWords}} state.
+///
+/// Created by get_it as a factory (see `{{feature}}_injection.dart`), so
+/// every screen gets its own instance.
+class {{Name}}Cubit extends Cubit<{{Name}}State> {
+  /// Creates the Cubit in the [{{Name}}Initial] state.
+  // TODO({{todoTag}}): Inject the use cases this Cubit needs, e.g.
+  // {{Name}}Cubit({required GetSomethingUseCaseImpl getSomething}) and
+  // register it as `() => {{Name}}Cubit(getSomething: getIt())`.
+  {{Name}}Cubit() : super(const {{Name}}Initial());
+
+  /// Loads the {{nameWords}} data.
+  Future<void> load() async {
+    emit(const {{Name}}Loading());
+    // TODO({{todoTag}}): Call a use case and emit {{Name}}Loaded or
+    // {{Name}}Error with its result.
+    emit(const {{Name}}Loaded());
+  }
+}

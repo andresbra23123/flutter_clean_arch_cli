@@ -1,0 +1,36 @@
+// ─────────────────────────────────────────────────────────────
+// InjectionContainer (Dependency Injection)
+// Uses get_it as a service locator.
+// Registers shared (core) dependencies and delegates each feature
+// to its own `init<Feature>Dependencies()` function.
+// Called from bootstrap.dart before runApp().
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:get_it/get_it.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+// flutter_clean_arch:feature-imports
+
+/// Global service locator instance.
+///
+/// Use it only in the dependency injection files and when creating BLoCs
+/// in a `BlocProvider`. Every other class receives its dependencies
+/// through the constructor.
+final GetIt getIt = GetIt.instance;
+
+/// Registers every dependency of the app.
+///
+/// Must be awaited once, before `runApp`.
+Future<void> initDependencies() async {
+  // ── External ──────────────────────────────────────────────
+  getIt
+    ..registerLazySingleton(() => InternetConnectionChecker.instance)
+    // ── Core ────────────────────────────────────────────────
+    ..registerLazySingleton<NetworkInfoInter>(() => NetworkInfoImpl(getIt()))
+    ..registerLazySingleton(() => ApiClient());
+
+  // ── Features ──────────────────────────────────────────────
+  // One init<Feature>Dependencies() call per feature.
+  // flutter_clean_arch:feature-init
+}

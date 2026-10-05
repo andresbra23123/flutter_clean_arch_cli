@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}UseCase
+// Business operation "{{nameWords}}" of the {{feature}} feature.
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/{{feature}}/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// Runs "{{nameWords}}" through the [{{Feature}}RepositoryInter].
+class {{Name}}UseCaseImpl implements UseCaseInter<{{returns}}, {{params}}> {
+  /// Creates the use case with the [repository] it uses.
+  {{Name}}UseCaseImpl({required this.repository});
+
+  /// Source of the {{feature}} data.
+  final {{Feature}}RepositoryInter repository;
+
+  /// Returns the result, or a [Failure] if the operation failed.
+  @override
+  Future<Either<Failure, {{returns}}>> call({{params}} params) {
+    return repository.{{nameCamel}}({{callArgs}});
+  }
+}

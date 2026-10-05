@@ -1,0 +1,54 @@
+// ─────────────────────────────────────────────────────────────
+// AuthBloc
+// Global session state: authenticated or not.
+// Listens to the user stream; AppRouter redirects based on its state.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part 'auth_event.dart';
+part 'auth_state.dart';
+
+/// Tracks whether there is a signed-in user.
+///
+/// Registered in get_it as a lazy singleton (see `auth_injection.dart`)
+/// and provided at the top of the widget tree, so every screen and the
+/// router share the same instance.
+class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  /// Creates the BLoC with the session state Firebase already restored.
+  ///
+  /// Dispatch [AuthSubscriptionRequested] right after creating it to keep
+  /// the state in sync with Firebase.
+  AuthBloc({
+    required this._watchUser,
+    required GetCurrentUserUseCaseImpl getCurrentUser,
+    required this._signOut,
+  }) : super(AuthState.fromUser(getCurrentUser())) {
+    on<AuthSubscriptionRequested>(_onSubscriptionRequested);
+    on<AuthSignOutRequested>(_onSignOutRequested);
+  }
+
+  final WatchUserUseCaseImpl _watchUser;
+  final SignOutUseCaseImpl _signOut;
+
+  /// Emits a new state every time the user signs in, signs out or updates
+  /// its profile, until the BLoC is closed.
+  Future<void> _onSubscriptionRequested(
+    AuthSubscriptionRequested event,
+    Emitter<AuthState> emit,
+  ) {
+    return emit.forEach(_watchUser(), onData: AuthState.fromUser);
+  }
+
+  /// Signs out. The new state arrives through the user stream.
+  Future<void> _onSignOutRequested(
+    AuthSignOutRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final result = await _signOut(NoParams());
+    result.fold((failure) => addError(failure), (_) {});
+  }
+}

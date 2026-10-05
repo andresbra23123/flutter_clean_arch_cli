@@ -1,0 +1,144 @@
+// ─────────────────────────────────────────────────────────────
+// AuthRemoteDataSourceImpl
+// Talks to Firebase Auth and Google Sign-In. It is the only file of
+// the feature that imports them, and it converts their errors into
+// AuthException with a code from AuthErrorCodes (via
+// authErrorCodeFromFirebase).
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/auth/data/data.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+/// [AuthRemoteDataSourceInter] implementation backed by Firebase Auth.
+///
+/// [googleSignIn] must be initialized (see `auth_injection.dart`) before
+/// [signInWithGoogle] is called.
+class AuthRemoteDataSourceImpl implements AuthRemoteDataSourceInter {
+  AuthRemoteDataSourceImpl({
+    required this.firebaseAuth,
+    required this.googleSignIn,
+  });
+
+  final FirebaseAuth firebaseAuth;
+  final GoogleSignIn googleSignIn;
+
+  @override
+  Stream<UserModel?> userChanges() {
+    return firebaseAuth.userChanges().map(
+      (user) => user == null ? null : UserModel.fromFirebaseUser(user),
+    );
+  }
+
+  @override
+  UserModel? get currentUser {
+    final user = firebaseAuth.currentUser;
+    return user == null ? null : UserModel.fromFirebaseUser(user);
+  }
+
+  @override
+  Future<UserModel> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _guard(() async {
+      final credential = await firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return _userFrom(credential);
+    });
+  }
+
+  @override
+  Future<UserModel> signUpWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  }) {
+    return _guard(() async {
+      final credential = await firebaseAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = _userFrom(credential);
+      await credential.user!.updateDisplayName(name);
+      // Reload so userChanges emits the user with its name.
+      await credential.user!.reload();
+      final reloaded = firebaseAuth.currentUser;
+      return reloaded == null ? user : UserModel.fromFirebaseUser(reloaded);
+    });
+  }
+
+  @override
+  Future<UserModel> signInWithGoogle() {
+    return _guard(() async {
+      final GoogleSignInAccount account;
+      try {
+        account = await googleSignIn.authenticate();
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          throw const AuthException(
+            message: 'Google sign-in cancelled by the user.',
+            code: AuthErrorCodes.cancelled,
+          );
+        }
+        throw AuthException(
+          message: 'Google sign-in failed: ${e.code.name} ${e.description}',
+          code: AuthErrorCodes.googleSignInFailed,
+        );
+      }
+
+      final idToken = account.authentication.idToken;
+      if (idToken == null) {
+        throw const AuthException(
+          message: 'Google did not return an ID token.',
+          code: AuthErrorCodes.googleSignInFailed,
+        );
+      }
+
+      final credential = await firebaseAuth.signInWithCredential(
+        GoogleAuthProvider.credential(idToken: idToken),
+      );
+      return _userFrom(credential);
+    });
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) {
+    return _guard(() => firebaseAuth.sendPasswordResetEmail(email: email));
+  }
+
+  @override
+  Future<void> signOut() {
+    return _guard(() async {
+      // Signing out of Google too makes the account picker show up again
+      // on the next Google sign-in.
+      await Future.wait([googleSignIn.signOut(), firebaseAuth.signOut()]);
+    });
+  }
+
+  UserModel _userFrom(UserCredential credential) {
+    final user = credential.user;
+    if (user == null) {
+      throw const AuthException(message: 'Firebase did not return a user.');
+    }
+    return UserModel.fromFirebaseUser(user);
+  }
+
+  /// Runs [action] and converts any [FirebaseAuthException] into an
+  /// [AuthException] with the equivalent code from `AuthErrorCodes`.
+  /// The Firebase code stays in the message for the logs.
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(
+        message: '${e.code}: ${e.message ?? 'Authentication failed.'}',
+        code: authErrorCodeFromFirebase(e.code),
+      );
+    }
+  }
+}

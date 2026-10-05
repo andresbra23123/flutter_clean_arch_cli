@@ -1,0 +1,67 @@
+// ─────────────────────────────────────────────────────────────
+// LoginBloc
+// Handles the login form: email/password and Google.
+// It does not navigate: AppRouter redirects once AuthBloc sees the user.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:{{package}}/features/auth/presentation/presentation.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part 'login_event.dart';
+part 'login_state.dart';
+
+/// Manages the state of the login screen.
+///
+/// Created by get_it as a factory, so every screen gets its own instance.
+class LoginBloc extends Bloc<LoginEvent, LoginState> {
+  /// Creates the BLoC in the [LoginInitial] state.
+  LoginBloc({
+    required this._signInWithEmail,
+    required this._signInWithGoogle,
+  }) : super(const LoginInitial()) {
+    on<LoginWithEmailSubmitted>(_onEmailSubmitted);
+    on<LoginWithGoogleRequested>(_onGoogleRequested);
+  }
+
+  final SignInWithEmailUseCaseImpl _signInWithEmail;
+  final SignInWithGoogleUseCaseImpl _signInWithGoogle;
+
+  /// Handles [LoginWithEmailSubmitted]: emits [LoginLoading], then
+  /// [LoginSuccess] or [LoginFailure].
+  Future<void> _onEmailSubmitted(
+    LoginWithEmailSubmitted event,
+    Emitter<LoginState> emit,
+  ) async {
+    emit(const LoginLoading());
+    final result = await _signInWithEmail(
+      SignInParams(email: event.email, password: event.password),
+    );
+    result.fold(
+      (failure) => emit(LoginFailure(errorCode: authErrorCode(failure))),
+      (_) => emit(const LoginSuccess()),
+    );
+  }
+
+  /// Handles [LoginWithGoogleRequested]: emits [LoginLoading], then
+  /// [LoginSuccess] or [LoginFailure]. Goes back to [LoginInitial] when
+  /// the user closes the Google dialog.
+  Future<void> _onGoogleRequested(
+    LoginWithGoogleRequested event,
+    Emitter<LoginState> emit,
+  ) async {
+    emit(const LoginLoading());
+    final result = await _signInWithGoogle(NoParams());
+    result.fold((failure) {
+      final code = authErrorCode(failure);
+      // Closing the Google dialog is not an error.
+      emit(
+        code == AuthErrorCodes.cancelled
+            ? const LoginInitial()
+            : LoginFailure(errorCode: code),
+      );
+    }, (_) => emit(const LoginSuccess()));
+  }
+}

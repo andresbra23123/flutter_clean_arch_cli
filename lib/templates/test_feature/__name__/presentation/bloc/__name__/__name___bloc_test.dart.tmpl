@@ -1,0 +1,45 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/{{name}}/{{name}}.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockGet{{Name}} extends Mock implements Get{{Name}}UseCaseImpl {}
+
+void main() {
+  late _MockGet{{Name}} get{{Name}};
+
+  const entity = {{Name}}Entity(id: '1');
+
+  setUpAll(() => registerFallbackValue(NoParams()));
+
+  setUp(() => get{{Name}} = _MockGet{{Name}}());
+
+  {{Name}}Bloc buildBloc() => {{Name}}Bloc(get{{Name}}: get{{Name}});
+
+  test('starts in {{Name}}Initial', () {
+    expect(buildBloc().state, const {{Name}}Initial());
+  });
+
+  blocTest<{{Name}}Bloc, {{Name}}State>(
+    'emits Loading and Loaded when the use case succeeds',
+    setUp: () => when(
+      () => get{{Name}}(any()),
+    ).thenAnswer((_) async => const Right(entity)),
+    build: buildBloc,
+    act: (bloc) => bloc.add(const Get{{Name}}Event()),
+    expect: () => const [{{Name}}Loading(), {{Name}}Loaded(entity: entity)],
+  );
+
+  blocTest<{{Name}}Bloc, {{Name}}State>(
+    'emits Loading and Error when the use case fails',
+    setUp: () => when(
+      () => get{{Name}}(any()),
+    ).thenAnswer((_) async => const Left(ServerFailure(message: 'error'))),
+    build: buildBloc,
+    act: (bloc) => bloc.add(const Get{{Name}}Event()),
+    expect: () => const [{{Name}}Loading(), {{Name}}Error(message: 'error')],
+  );
+}

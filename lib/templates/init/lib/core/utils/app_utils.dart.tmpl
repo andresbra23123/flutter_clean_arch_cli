@@ -1,0 +1,66 @@
+// ─────────────────────────────────────────────────────────────
+// AppUtils
+// General utility functions used across the app.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+
+/// Helpers for common UI actions, formatting and validation.
+class AppUtils {
+  AppUtils._();
+
+  /// Shows a floating [SnackBar] with [message] for 3 seconds.
+  ///
+  /// It is red when [isError] is `true` and green otherwise.
+  static void showSnackBar(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  /// Shows a full-screen loading indicator that the user cannot dismiss.
+  ///
+  /// Close it with [dismissDialog].
+  static Future<void> showLoadingDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  /// Closes the top-most route (e.g. the dialog from [showLoadingDialog]),
+  /// if there is one.
+  static void dismissDialog(BuildContext context) {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // TODO({{todoTag}}): Use intl (DateFormat) for localized dates.
+  /// Formats [date] as `day/month/year`, without leading zeros.
+  static String formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  /// Whether [email] has a valid email address format.
+  static bool isValidEmail(String email) {
+    return RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  /// Whether [value] is `null`, empty or contains only whitespace.
+  static bool isNullOrEmpty(String? value) {
+    return value == null || value.trim().isEmpty;
+  }
+
+  // TODO({{todoTag}}): Add more utility methods specific to the app.
+}

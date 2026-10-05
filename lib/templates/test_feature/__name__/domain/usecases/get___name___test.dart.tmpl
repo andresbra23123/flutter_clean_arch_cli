@@ -1,0 +1,42 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/{{name}}/{{name}}.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRepository extends Mock implements {{Name}}RepositoryInter {}
+
+void main() {
+  late _MockRepository repository;
+  late Get{{Name}}UseCaseImpl useCase;
+
+  const entity = {{Name}}Entity(id: '1');
+
+  setUp(() {
+    repository = _MockRepository();
+    useCase = Get{{Name}}UseCaseImpl(repository: repository);
+  });
+
+  test('returns the entity from the repository', () async {
+    when(
+      () => repository.get{{Name}}(),
+    ).thenAnswer((_) async => const Right(entity));
+
+    final result = await useCase(NoParams());
+
+    expect(result, const Right<Failure, {{Name}}Entity>(entity));
+    verify(() => repository.get{{Name}}()).called(1);
+  });
+
+  test('returns the failure from the repository', () async {
+    const failure = ServerFailure(message: 'error');
+    when(
+      () => repository.get{{Name}}(),
+    ).thenAnswer((_) async => const Left(failure));
+
+    final result = await useCase(NoParams());
+
+    expect(result, const Left<Failure, {{Name}}Entity>(failure));
+  });
+}

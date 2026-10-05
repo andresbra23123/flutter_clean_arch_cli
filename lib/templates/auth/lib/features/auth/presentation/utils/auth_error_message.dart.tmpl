@@ -1,0 +1,38 @@
+// ─────────────────────────────────────────────────────────────
+// authErrorCode / authErrorMessage
+// Turn a Failure into an error code from AuthErrorCodes, and that code
+// into a translated message.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+
+/// Error code from `AuthErrorCodes` for [failure], or `null` when it is
+/// unknown. Used by the auth form BLoCs to build their failure states.
+String? authErrorCode(Failure failure) {
+  return switch (failure) {
+    AuthFailure(:final code) => code,
+    NetworkFailure() => AuthErrorCodes.network,
+    _ => null,
+  };
+}
+
+/// Translated message for the auth error [code]. Unknown or `null` codes
+/// get a generic message.
+String authErrorMessage(AppLocalizations l10n, String? code) {
+  return switch (code) {
+    AuthErrorCodes.invalidCredentials => l10n.authErrorInvalidCredentials,
+    AuthErrorCodes.invalidEmail => l10n.authErrorInvalidEmail,
+    AuthErrorCodes.userDisabled => l10n.authErrorUserDisabled,
+    AuthErrorCodes.emailAlreadyInUse => l10n.authErrorEmailInUse,
+    AuthErrorCodes.weakPassword => l10n.authErrorWeakPassword,
+    AuthErrorCodes.tooManyRequests => l10n.authErrorTooManyRequests,
+    AuthErrorCodes.network => l10n.authErrorNetwork,
+    AuthErrorCodes.providerDisabled => l10n.authErrorOperationNotAllowed,
+    AuthErrorCodes.accountExistsWithDifferentProvider =>
+      l10n.authErrorAccountExistsWithDifferentCredential,
+    AuthErrorCodes.googleSignInFailed => l10n.authErrorGoogle,
+    _ => l10n.authErrorUnknown,
+  };
+}

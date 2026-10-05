@@ -1,0 +1,44 @@
+// ─────────────────────────────────────────────────────────────
+// AuthState
+// Every state that AuthBloc can emit.
+// ─────────────────────────────────────────────────────────────
+
+part of 'auth_bloc.dart';
+
+/// Base class for all session states.
+abstract class AuthState extends Equatable {
+  /// Base constructor for the subclasses.
+  const AuthState();
+
+  /// [AuthAuthenticated] when there is a [user], [AuthUnauthenticated]
+  /// otherwise.
+  factory AuthState.fromUser(UserEntity? user) {
+    return user == null
+        ? const AuthUnauthenticated()
+        : AuthAuthenticated(user: user);
+  }
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// There is a signed-in user.
+class AuthAuthenticated extends AuthState {
+  /// Creates the state with the signed-in [user].
+  const AuthAuthenticated({required this.user});
+
+  /// The signed-in user.
+  final UserEntity user;
+
+  @override
+  List<Object?> get props => [user];
+
+  @override
+  String toString() => 'AuthAuthenticated(user: $user)';
+}
+
+/// There is no session.
+class AuthUnauthenticated extends AuthState {
+  /// Creates the state.
+  const AuthUnauthenticated();
+}

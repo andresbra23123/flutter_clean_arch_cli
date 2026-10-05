@@ -1,0 +1,51 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Page
+// {{nameTitle}} screen of the {{feature}} feature.
+// {{Name}}Page provides the BLoC; {{Name}}View builds the UI from its states.
+// TODO({{todoTag}}): Build the UI to match the design.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/features/{{feature}}/presentation/presentation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+/// Entry point of the {{nameWords}} screen: creates the [{{Name}}Bloc] and
+/// shows [{{Name}}View].
+class {{Name}}Page extends StatelessWidget {
+  /// Creates the {{nameWords}} page.
+  const {{Name}}Page({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<{{Name}}Bloc>()..add(const {{Name}}Started()),
+      child: const {{Name}}View(),
+    );
+  }
+}
+
+/// UI of the {{nameWords}} screen. Reads the [{{Name}}Bloc] provided by
+/// [{{Name}}Page].
+class {{Name}}View extends StatelessWidget {
+  /// Creates the {{nameWords}} view.
+  const {{Name}}View({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // TODO({{todoTag}}): Update the title.
+      appBar: AppBar(title: const Text('{{nameTitle}}')),
+      body: BlocBuilder<{{Name}}Bloc, {{Name}}State>(
+        builder: (context, state) => switch (state) {
+          {{Name}}Loading() => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          {{Name}}Error(:final message) => Center(child: Text(message)),
+          // TODO({{todoTag}}): Show the loaded data.
+          _ => const Center(child: Text('{{nameTitle}}')),
+        },
+      ),
+    );
+  }
+}

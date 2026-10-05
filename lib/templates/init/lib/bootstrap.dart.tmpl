@@ -1,0 +1,44 @@
+import 'dart:async';
+import 'dart:developer';
+
+import 'package:bloc/bloc.dart';
+import 'package:{{package}}/core/di/di.dart';
+import 'package:flutter/widgets.dart';
+
+/// Logs every state change and error of all BLoCs and Cubits in the app.
+class AppBlocObserver extends BlocObserver {
+  /// Creates the global BLoC observer.
+  const AppBlocObserver();
+
+  @override
+  void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
+    super.onChange(bloc, change);
+    log('onChange(${bloc.runtimeType}, $change)');
+  }
+
+  @override
+  void onError(BlocBase<dynamic> bloc, Object error, StackTrace stackTrace) {
+    log('onError(${bloc.runtimeType}, $error, $stackTrace)');
+    super.onError(bloc, error, stackTrace);
+  }
+}
+
+/// Shared startup sequence for every flavor (development, staging and
+/// production).
+///
+/// Sets up error logging and the BLoC observer, registers all dependencies
+/// and finally runs the widget returned by [builder].
+Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
+  FlutterError.onError = (details) {
+    log(details.exceptionAsString(), stackTrace: details.stack);
+  };
+
+  Bloc.observer = const AppBlocObserver();
+
+  // Add cross-flavor configuration here.
+  // The binding must exist before any plugin is used during initialization.
+  WidgetsFlutterBinding.ensureInitialized();
+  await initDependencies();
+
+  runApp(await builder());
+}

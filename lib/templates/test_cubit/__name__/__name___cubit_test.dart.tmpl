@@ -1,0 +1,18 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/features/{{feature}}/{{feature}}.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('starts in {{Name}}Initial', () {
+    expect({{Name}}Cubit().state, const {{Name}}Initial());
+  });
+
+  // TODO({{todoTag}}): Mock the use cases the Cubit receives and test the
+  // Loaded and Error results of each method.
+  blocTest<{{Name}}Cubit, {{Name}}State>(
+    'emits Loading and Loaded on load()',
+    build: {{Name}}Cubit.new,
+    act: (cubit) => cubit.load(),
+    expect: () => const [{{Name}}Loading(), {{Name}}Loaded()],
+  );
+}

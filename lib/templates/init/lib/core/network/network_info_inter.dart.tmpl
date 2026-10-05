@@ -1,0 +1,12 @@
+// ─────────────────────────────────────────────────────────────
+// NetworkInfoInter (contract)
+// Tells whether the device has an active internet connection.
+// Repositories depend on this contract to decide between remote and
+// local data, so it can be replaced by a mock in tests.
+// ─────────────────────────────────────────────────────────────
+
+/// Network connectivity contract.
+abstract interface class NetworkInfoInter {
+  /// Whether the device can currently reach the internet.
+  Future<bool> get isConnected;
+}

@@ -1,0 +1,38 @@
+// ─────────────────────────────────────────────────────────────
+// ApiEndpoints
+// Centralizes every API endpoint path.
+// Paths are relative to AppConstants.baseUrl.
+// ─────────────────────────────────────────────────────────────
+
+/// API endpoint paths, relative to the base URL configured in `ApiClient`.
+class ApiEndpoints {
+  ApiEndpoints._();
+
+  // ── Auth ──────────────────────────────────────────────────
+  // TODO({{todoTag}}): Replace with the real endpoint paths of the API.
+
+  /// Logs a user in.
+  static const String login = '/auth/login';
+
+  /// Creates a new user account.
+  static const String register = '/auth/register';
+
+  /// Ends the current session.
+  static const String logout = '/auth/logout';
+
+  /// Exchanges a refresh token for a new access token.
+  static const String refreshToken = '/auth/refresh';
+
+  // ── User ──────────────────────────────────────────────────
+
+  /// Returns the profile of the logged-in user.
+  static const String getUser = '/users/me';
+
+  /// Updates the profile of the logged-in user.
+  static const String updateUser = '/users/me';
+
+  // TODO({{todoTag}}): Add the endpoints of each new feature below.
+  // Example:
+  // static const String getSongs = '/songs';
+  // static const String getSongById = '/songs/{id}';
+}

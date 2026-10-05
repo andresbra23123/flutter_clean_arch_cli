@@ -1,0 +1,61 @@
+// ─────────────────────────────────────────────────────────────
+// AppConstants
+// Central place for every app-wide constant.
+// ─────────────────────────────────────────────────────────────
+
+/// App-wide constants: API configuration, app info, storage keys,
+/// pagination and durations.
+class AppConstants {
+  AppConstants._();
+
+  // ── API Configuration ─────────────────────────────────────
+
+  // TODO({{todoTag}}): Replace with the real API base URL.
+  /// Base URL of the API. Every endpoint in `ApiEndpoints` is relative to it.
+  static const String baseUrl = 'https://your-api.com/api/v1';
+
+  /// Maximum time, in seconds, to establish a connection with the API.
+  static const int connectTimeout = 30;
+
+  /// Maximum time, in seconds, to wait for the API response.
+  static const int receiveTimeout = 30;
+
+  // ── App Info ──────────────────────────────────────────────
+
+  /// Display name of the app.
+  static const String appName = '{{appTitle}}';
+
+  /// App version. Must match the `version` field in pubspec.yaml.
+  static const String appVersion = '1.0.0';
+
+  // ── Local Storage Keys ────────────────────────────────────
+
+  /// Key of the stored access token.
+  static const String tokenKey = 'auth_token';
+
+  /// Key of the stored refresh token.
+  static const String refreshTokenKey = 'refresh_token';
+
+  /// Key of the stored user data.
+  static const String userKey = 'user_data';
+
+  /// Key of the selected theme.
+  static const String themeKey = 'app_theme';
+
+  // ── Pagination ────────────────────────────────────────────
+  // TODO({{todoTag}}): Adjust to match the API pagination settings.
+
+  /// Number of items requested per page.
+  static const int pageSize = 20;
+
+  /// Index of the first page.
+  static const int firstPage = 1;
+
+  // ── Durations ─────────────────────────────────────────────
+
+  /// How long the splash screen is shown.
+  static const Duration splashDuration = Duration(seconds: 2);
+
+  /// Default duration of UI animations.
+  static const Duration animationDuration = Duration(milliseconds: 300);
+}

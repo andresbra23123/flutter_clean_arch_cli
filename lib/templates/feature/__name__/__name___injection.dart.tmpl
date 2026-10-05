@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}} dependency injection
+// Registers every dependency of the {{nameWords}} feature.
+// Called from initDependencies() in core/di/injection_container.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/features/{{name}}/data/data.dart';
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+import 'package:{{package}}/features/{{name}}/presentation/presentation.dart';
+
+/// Registers the BLoC, use cases, repository and data sources of the {{nameWords}}
+/// feature.
+///
+/// Contracts are registered with their `Inter` type, so the
+/// implementations can be swapped (e.g. for mocks in tests).
+void init{{Name}}Dependencies() {
+  getIt
+    // ── Presentation ────────────────────────────────────────
+    // Factory: a new BLoC every time a screen asks for one.
+    ..registerFactory(() => {{Name}}Bloc(get{{Name}}: getIt()))
+    // flutter_clean_arch:blocs
+    // ── Domain ──────────────────────────────────────────────
+    // Lazy singletons: created once, the first time they are needed.
+    ..registerLazySingleton(() => Get{{Name}}UseCaseImpl(repository: getIt()))
+    // flutter_clean_arch:usecases
+    // ── Data ────────────────────────────────────────────────
+    ..registerLazySingleton<{{Name}}RepositoryInter>(
+      () => {{Name}}RepositoryImpl(
+        remoteDataSource: getIt(),
+        localDataSource: getIt(),
+        networkInfo: getIt(),
+      ),
+    )
+    ..registerLazySingleton<{{Name}}RemoteDataSourceInter>(
+      () => {{Name}}RemoteDataSourceImpl(apiClient: getIt()),
+    )
+    ..registerLazySingleton<{{Name}}LocalDataSourceInter>(
+      {{Name}}LocalDataSourceImpl.new,
+    );
+}

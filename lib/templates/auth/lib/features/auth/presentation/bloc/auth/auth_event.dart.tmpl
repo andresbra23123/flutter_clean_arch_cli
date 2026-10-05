@@ -1,0 +1,27 @@
+// ─────────────────────────────────────────────────────────────
+// AuthEvent
+// Every event that AuthBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'auth_bloc.dart';
+
+/// Base class for all session events.
+abstract class AuthEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const AuthEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Starts listening to the user stream. Dispatched once, on creation.
+class AuthSubscriptionRequested extends AuthEvent {
+  /// Creates the event.
+  const AuthSubscriptionRequested();
+}
+
+/// The user tapped "Sign out".
+class AuthSignOutRequested extends AuthEvent {
+  /// Creates the event.
+  const AuthSignOutRequested();
+}

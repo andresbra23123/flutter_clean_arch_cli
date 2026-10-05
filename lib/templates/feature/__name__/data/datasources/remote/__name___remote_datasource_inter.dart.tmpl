@@ -1,0 +1,24 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}RemoteDataSourceInter (contract)
+// Defines how the {{nameWords}} feature talks to the remote API.
+// The repository depends on this contract, never on the implementation,
+// so the HTTP client or the API can change without touching other layers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/{{name}}/data/data.dart';
+
+/// Remote API contract for the {{nameWords}} feature.
+///
+/// Implementations throw a [ServerException] when the request fails or the
+/// API returns an error. The repository catches it and converts it into a
+/// `ServerFailure`.
+abstract interface class {{Name}}RemoteDataSourceInter {
+  /// Fetches the current [{{Name}}Model] from the API.
+  ///
+  /// Throws a [ServerException] if the request fails or the response is not
+  /// successful.
+  Future<{{Name}}Model> get{{Name}}();
+
+  // TODO({{todoTag}}): Add more remote methods as needed, e.g. login().
+}

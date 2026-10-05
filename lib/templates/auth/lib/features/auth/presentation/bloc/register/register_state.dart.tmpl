@@ -1,0 +1,48 @@
+// ─────────────────────────────────────────────────────────────
+// RegisterState
+// Every state that RegisterBloc can emit.
+// ─────────────────────────────────────────────────────────────
+
+part of 'register_bloc.dart';
+
+/// Base class for all sign-up states.
+abstract class RegisterState extends Equatable {
+  /// Base constructor for the subclasses.
+  const RegisterState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Nothing submitted yet.
+class RegisterInitial extends RegisterState {
+  /// Creates the initial state.
+  const RegisterInitial();
+}
+
+/// Creating the account. The form is disabled.
+class RegisterLoading extends RegisterState {
+  /// Creates the loading state.
+  const RegisterLoading();
+}
+
+/// The account was created and signed in. AppRouter takes the user home.
+class RegisterSuccess extends RegisterState {
+  /// Creates the success state.
+  const RegisterSuccess();
+}
+
+/// The account could not be created.
+class RegisterFailure extends RegisterState {
+  /// Creates the failure state with the [errorCode] of the error.
+  const RegisterFailure({this.errorCode});
+
+  /// Code from `AuthErrorCodes`, or `null` for an unknown error.
+  final String? errorCode;
+
+  @override
+  List<Object?> get props => [errorCode];
+
+  @override
+  String toString() => 'RegisterFailure(errorCode: $errorCode)';
+}

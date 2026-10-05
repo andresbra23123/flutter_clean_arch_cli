@@ -1,0 +1,29 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}LocalDataSourceInter (contract)
+// Defines how the {{nameWords}} feature reads and writes data on the device.
+// The repository depends on this contract, never on the implementation,
+// so the storage technology can change without touching other layers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/{{name}}/data/data.dart';
+
+/// Local storage contract for the {{nameWords}} feature.
+///
+/// Implementations throw a [CacheException] when the storage fails or the
+/// requested data does not exist. The repository catches it and converts it
+/// into a `CacheFailure`.
+abstract interface class {{Name}}LocalDataSourceInter {
+  /// Returns the [{{Name}}Model] stored on the device.
+  ///
+  /// Throws a [CacheException] if nothing has been cached yet or the value
+  /// cannot be read.
+  Future<{{Name}}Model> getCached{{Name}}();
+
+  /// Stores [model] on the device, replacing any previous value.
+  ///
+  /// Throws a [CacheException] if the value cannot be written.
+  Future<void> cache{{Name}}({{Name}}Model model);
+
+  // TODO({{todoTag}}): Add more local storage methods as needed, e.g. clear{{Name}}().
+}

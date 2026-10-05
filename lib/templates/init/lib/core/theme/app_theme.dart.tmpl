@@ -1,0 +1,94 @@
+// ─────────────────────────────────────────────────────────────
+// AppTheme
+// Configures the app's light and dark themes.
+// TODO({{todoTag}}): Customize the theme to match the design system.
+// ─────────────────────────────────────────────────────────────
+
+// Colors are passed explicitly so the theme follows AppColors; they only
+// match the ColorScheme defaults while AppColors holds placeholder values.
+// ignore_for_file: avoid_redundant_argument_values
+
+import 'package:{{package}}/core/theme/theme.dart';
+import 'package:flutter/material.dart';
+
+/// Light and dark [ThemeData] of the app, built from [AppColors] and
+/// [AppTextStyles].
+class AppTheme {
+  AppTheme._();
+
+  /// Light theme, used by default.
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      primaryColor: AppColors.primary,
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.primary,
+        secondary: AppColors.secondary,
+        error: AppColors.error,
+        surface: AppColors.surface,
+      ),
+      // TODO({{todoTag}}): Customize the AppBar to match the brand.
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        elevation: 0,
+        titleTextStyle: AppTextStyles.h3,
+      ),
+      // TODO({{todoTag}}): Customize the ElevatedButton style.
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          textStyle: AppTextStyles.button,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      // TODO({{todoTag}}): Customize the text field decoration.
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.error),
+        ),
+        hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
+      ),
+      dividerColor: AppColors.divider,
+      textTheme: const TextTheme(
+        displayLarge: AppTextStyles.h1,
+        displayMedium: AppTextStyles.h2,
+        titleLarge: AppTextStyles.h3,
+        bodyLarge: AppTextStyles.bodyLarge,
+        bodyMedium: AppTextStyles.bodyMedium,
+        bodySmall: AppTextStyles.bodySmall,
+        labelLarge: AppTextStyles.button,
+      ),
+    );
+  }
+
+  // TODO({{todoTag}}): Configure the dark theme colors.
+  /// Dark theme, used when the device is in dark mode.
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      primaryColor: AppColors.primary,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.primary,
+        secondary: AppColors.secondary,
+        error: AppColors.error,
+      ),
+      // TODO({{todoTag}}): Customize the dark theme components.
+    );
+  }
+}

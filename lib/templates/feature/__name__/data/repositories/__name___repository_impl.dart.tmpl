@@ -1,0 +1,70 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}RepositoryImpl
+// Implements the domain repository contract.
+// Decides between the remote and the local data source based on the
+// connection, caches fresh data and converts exceptions into Failures.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/features/{{name}}/data/data.dart';
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// [{{Name}}RepositoryInter] implementation with offline support.
+///
+/// - Online: fetches from the API and caches the result.
+/// - Offline: returns the last cached value.
+class {{Name}}RepositoryImpl implements {{Name}}RepositoryInter {
+
+  /// Creates the repository with its data sources and the network checker.
+  {{Name}}RepositoryImpl({
+    required this.remoteDataSource,
+    required this.localDataSource,
+    required this.networkInfo,
+  });
+
+  /// Reads the {{nameWords}} data from the API.
+  final {{Name}}RemoteDataSourceInter remoteDataSource;
+
+  /// Reads and writes the {{nameWords}} data on the device.
+  final {{Name}}LocalDataSourceInter localDataSource;
+
+  /// Tells whether the device is online.
+  final NetworkInfoInter networkInfo;
+
+  /// Returns the {{nameWords}} data from the API when online, or from the cache
+  /// when offline.
+  ///
+  /// Errors are returned as a [ServerFailure], [AuthFailure] or
+  /// [CacheFailure].
+  @override
+  Future<Either<Failure, {{Name}}Entity>> get{{Name}}() async {
+    if (await networkInfo.isConnected) {
+      // Online: fetch from the API.
+      try {
+        final remote = await remoteDataSource.get{{Name}}();
+
+        // Keep a local copy for when the device is offline.
+        await localDataSource.cache{{Name}}(remote);
+
+        return Right(remote);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(message: e.message));
+      } on AuthException catch (e) {
+        return Left(AuthFailure(message: e.message));
+      }
+    } else {
+      // Offline: return the cached data.
+      try {
+        final cached = await localDataSource.getCached{{Name}}();
+        return Right(cached);
+      } on CacheException catch (e) {
+        return Left(CacheFailure(message: e.message));
+      }
+    }
+  }
+
+  // TODO({{todoTag}}): Implement the other repository methods here.
+  // flutter_clean_arch:repository-methods
+}

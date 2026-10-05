@@ -1,0 +1,10 @@
+import 'package:{{package}}/core/l10n/gen/app_localizations.dart';
+import 'package:flutter/widgets.dart';
+
+export 'package:{{package}}/core/l10n/gen/app_localizations.dart';
+
+/// Shortcut to the translated strings: `context.l10n.someKey`.
+extension AppLocalizationsX on BuildContext {
+  /// Translations for the current locale.
+  AppLocalizations get l10n => AppLocalizations.of(this);
+}

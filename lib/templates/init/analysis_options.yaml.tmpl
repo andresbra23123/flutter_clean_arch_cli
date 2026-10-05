@@ -1,0 +1,28 @@
+include:
+  - package:very_good_analysis/analysis_options.yaml
+  - package:bloc_lint/recommended.yaml
+analyzer:
+  errors:
+    inference_failure_on_function_invocation: ignore
+    lines_longer_than_80_chars: ignore
+    # Inter contracts often have one member. Silenced here instead of
+    # disabled under linter: newer Dart versions deprecate the rule.
+    one_member_abstracts: ignore
+    strict_raw_type: ignore
+    unnecessary_lambdas: ignore
+  exclude:
+    - lib/core/l10n/gen/*
+linter:
+  rules:
+    public_member_api_docs: false
+    sort_constructors_first: true
+    always_declare_return_types: true
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    avoid_unnecessary_containers: true
+    use_key_in_widget_constructors: true
+    avoid_print: true
+    prefer_final_locals: true
+    sort_pub_dependencies: true
+
+

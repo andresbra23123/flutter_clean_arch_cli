@@ -1,0 +1,48 @@
+// ─────────────────────────────────────────────────────────────
+// LoginState
+// Every state that LoginBloc can emit.
+// ─────────────────────────────────────────────────────────────
+
+part of 'login_bloc.dart';
+
+/// Base class for all login states.
+abstract class LoginState extends Equatable {
+  /// Base constructor for the subclasses.
+  const LoginState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Nothing submitted yet, or the user cancelled Google sign-in.
+class LoginInitial extends LoginState {
+  /// Creates the initial state.
+  const LoginInitial();
+}
+
+/// Waiting for Firebase. The form is disabled.
+class LoginLoading extends LoginState {
+  /// Creates the loading state.
+  const LoginLoading();
+}
+
+/// The user signed in. AppRouter takes them to home.
+class LoginSuccess extends LoginState {
+  /// Creates the success state.
+  const LoginSuccess();
+}
+
+/// The sign-in failed.
+class LoginFailure extends LoginState {
+  /// Creates the failure state with the [errorCode] of the error.
+  const LoginFailure({this.errorCode});
+
+  /// Code from `AuthErrorCodes`, or `null` for an unknown error.
+  final String? errorCode;
+
+  @override
+  List<Object?> get props => [errorCode];
+
+  @override
+  String toString() => 'LoginFailure(errorCode: $errorCode)';
+}

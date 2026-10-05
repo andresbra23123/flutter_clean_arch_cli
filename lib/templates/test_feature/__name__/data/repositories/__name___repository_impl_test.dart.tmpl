@@ -1,0 +1,104 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/features/{{name}}/{{name}}.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRemote extends Mock implements {{Name}}RemoteDataSourceInter {}
+
+class _MockLocal extends Mock implements {{Name}}LocalDataSourceInter {}
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+void main() {
+  late _MockRemote remote;
+  late _MockLocal local;
+  late _MockNetworkInfo networkInfo;
+  late {{Name}}RepositoryImpl repository;
+
+  const model = {{Name}}Model(id: '1');
+
+  setUpAll(() => registerFallbackValue(model));
+
+  setUp(() {
+    remote = _MockRemote();
+    local = _MockLocal();
+    networkInfo = _MockNetworkInfo();
+    repository = {{Name}}RepositoryImpl(
+      remoteDataSource: remote,
+      localDataSource: local,
+      networkInfo: networkInfo,
+    );
+  });
+
+  group('online', () {
+    setUp(() {
+      when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+    });
+
+    test('returns the remote data and caches it', () async {
+      when(() => remote.get{{Name}}()).thenAnswer((_) async => model);
+      when(() => local.cache{{Name}}(any())).thenAnswer((_) async {});
+
+      final result = await repository.get{{Name}}();
+
+      expect(result, const Right<Failure, {{Name}}Entity>(model));
+      verify(() => local.cache{{Name}}(model)).called(1);
+    });
+
+    test('maps a ServerException to a ServerFailure', () async {
+      when(
+        () => remote.get{{Name}}(),
+      ).thenThrow(const ServerException(message: 'server'));
+
+      final result = await repository.get{{Name}}();
+
+      expect(
+        result,
+        const Left<Failure, {{Name}}Entity>(ServerFailure(message: 'server')),
+      );
+    });
+
+    test('maps an AuthException to an AuthFailure', () async {
+      when(
+        () => remote.get{{Name}}(),
+      ).thenThrow(const AuthException(message: 'auth'));
+
+      final result = await repository.get{{Name}}();
+
+      expect(
+        result,
+        const Left<Failure, {{Name}}Entity>(AuthFailure(message: 'auth')),
+      );
+    });
+  });
+
+  group('offline', () {
+    setUp(() {
+      when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+    });
+
+    test('returns the cached data', () async {
+      when(() => local.getCached{{Name}}()).thenAnswer((_) async => model);
+
+      final result = await repository.get{{Name}}();
+
+      expect(result, const Right<Failure, {{Name}}Entity>(model));
+      verifyNever(() => remote.get{{Name}}());
+    });
+
+    test('maps a CacheException to a CacheFailure', () async {
+      when(
+        () => local.getCached{{Name}}(),
+      ).thenThrow(const CacheException(message: 'cache'));
+
+      final result = await repository.get{{Name}}();
+
+      expect(
+        result,
+        const Left<Failure, {{Name}}Entity>(CacheFailure(message: 'cache')),
+      );
+    });
+  });
+}

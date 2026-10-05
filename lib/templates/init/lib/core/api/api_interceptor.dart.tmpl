@@ -1,0 +1,52 @@
+// ─────────────────────────────────────────────────────────────
+// ApiInterceptor
+// Runs on every request, response and error handled by ApiClient.
+// Currently it only logs; it is the place to add the auth token and
+// global error handling.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dio/dio.dart';
+
+/// Dio interceptor attached to `ApiClient`.
+///
+/// Logs every request, response and error to the console.
+class ApiInterceptor extends Interceptor {
+  /// Runs before each request is sent.
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // TODO({{todoTag}}): Add the auth token to every request.
+    // Example (requires a service that stores the token):
+    // final token = getIt<TokenStorage>().read();
+    // if (token != null) {
+    //   options.headers['Authorization'] = 'Bearer $token';
+    // }
+
+    // TODO({{todoTag}}): Log only in debug mode (kDebugMode).
+    // Console logging is intended here.
+    // ignore: avoid_print
+    print('[API REQUEST] ${options.method} ${options.uri}');
+
+    handler.next(options);
+  }
+
+  /// Runs when a response is received.
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    // Console logging is intended here.
+    // ignore: avoid_print
+    print(
+      '[API RESPONSE] ${response.statusCode} ${response.requestOptions.uri}',
+    );
+    handler.next(response);
+  }
+
+  /// Runs when a request fails (connection error, timeout or non-2xx).
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    // TODO({{todoTag}}): Handle global errors, e.g. refresh the token on a 401.
+    // Console logging is intended here.
+    // ignore: avoid_print
+    print('[API ERROR] ${err.response?.statusCode} ${err.message}');
+    handler.next(err);
+  }
+}

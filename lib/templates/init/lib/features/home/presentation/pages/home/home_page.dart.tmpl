@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// HomePage
+// First screen of the app (AppRoutes.home).
+// TODO({{todoTag}}): Replace the placeholder content with the real home UI.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/features/home/presentation/presentation.dart';
+import 'package:flutter/material.dart';
+
+/// Home screen of {{appTitle}}.
+///
+/// Placeholder: shows a welcome message until the real content exists.
+class HomePage extends StatelessWidget {
+  /// Creates the home page.
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.homeTitle)),
+      body: const HomeWelcome(),
+    );
+  }
+}

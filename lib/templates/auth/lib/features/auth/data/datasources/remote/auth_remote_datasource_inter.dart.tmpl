@@ -1,0 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// AuthRemoteDataSourceInter (contract)
+// Defines how the auth feature talks to the authentication provider.
+// The repository depends on this contract, never on Firebase directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/auth/data/data.dart';
+
+/// Remote authentication contract of the auth feature.
+///
+/// Every operation throws an [AuthException] with a code from
+/// `AuthErrorCodes` when it fails. The repository converts it into an
+/// `AuthFailure`.
+abstract interface class AuthRemoteDataSourceInter {
+  /// Emits the user on every sign-in, sign-out and profile change.
+  Stream<UserModel?> userChanges();
+
+  /// The signed-in user, or `null` if there is no session.
+  UserModel? get currentUser;
+
+  /// Signs in with [email] and [password].
+  Future<UserModel> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
+  /// Creates an account and saves [name] as its display name.
+  Future<UserModel> signUpWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  });
+
+  /// Signs in with the Google account the user picks.
+  Future<UserModel> signInWithGoogle();
+
+  /// Sends the password reset email to [email].
+  Future<void> sendPasswordResetEmail({required String email});
+
+  /// Signs out of Firebase and Google.
+  Future<void> signOut();
+}

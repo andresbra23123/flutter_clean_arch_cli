@@ -1,0 +1,52 @@
+// ─────────────────────────────────────────────────────────────
+// NotFoundPage
+// Shown by AppRouter when the requested path does not exist.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+/// Error page for unknown routes, with a button back to the home page.
+class NotFoundPage extends StatelessWidget {
+  /// Creates the page for the [path] that could not be found.
+  const NotFoundPage({required this.path, super.key});
+
+  /// Path the user tried to open.
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.notFoundTitle)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.search_off, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                l10n.notFoundMessage,
+                textAlign: TextAlign.center,
+                style: textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(path, style: textTheme.bodySmall),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.goNamed(AppRoutes.homeName),
+                child: Text(l10n.notFoundBackHome),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,18 @@
+// ─────────────────────────────────────────────────────────────
+// AppRoutes
+// Single source of truth for every route path and name.
+// Navigate by name: context.goNamed(AppRoutes.homeName).
+// ─────────────────────────────────────────────────────────────
+
+/// Paths and names of every route registered in `AppRouter`.
+abstract final class AppRoutes {
+  // ── Home ──────────────────────────────────────────────────
+
+  /// Path of the home page. It is also the initial route.
+  static const String home = '/home';
+
+  /// Name of the home route.
+  static const String homeName = 'home';
+
+  // flutter_clean_arch:routes
+}

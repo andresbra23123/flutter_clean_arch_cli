@@ -1,0 +1,37 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Bloc
+// Receives events → calls use cases → emits states.
+// TODO({{todoTag}}): Describe what this BLoC manages.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part '{{name}}_event.dart';
+part '{{name}}_state.dart';
+
+/// Manages the {{nameWords}} state.
+///
+/// Created by get_it as a factory (see `{{feature}}_injection.dart`), so
+/// every screen gets its own instance.
+class {{Name}}Bloc extends Bloc<{{Name}}Event, {{Name}}State> {
+  /// Creates the BLoC in the [{{Name}}Initial] state.
+  // TODO({{todoTag}}): Inject the use cases this BLoC needs, e.g.
+  // {{Name}}Bloc({required GetSomethingUseCaseImpl getSomething}) and
+  // register it as `() => {{Name}}Bloc(getSomething: getIt())`.
+  {{Name}}Bloc() : super(const {{Name}}Initial()) {
+    // Register one handler per event.
+    on<{{Name}}Started>(_onStarted);
+  }
+
+  /// Handles [{{Name}}Started].
+  Future<void> _onStarted(
+    {{Name}}Started event,
+    Emitter<{{Name}}State> emit,
+  ) async {
+    emit(const {{Name}}Loading());
+    // TODO({{todoTag}}): Call a use case and emit {{Name}}Loaded or
+    // {{Name}}Error with its result.
+    emit(const {{Name}}Loaded());
+  }
+}

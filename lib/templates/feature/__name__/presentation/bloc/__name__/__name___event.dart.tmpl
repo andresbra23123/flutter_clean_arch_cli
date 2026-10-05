@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Event
+// Every event (user action or trigger) that {{Name}}Bloc can receive.
+// TODO({{todoTag}}): Add events matching the feature interactions.
+// ─────────────────────────────────────────────────────────────
+
+part of '{{name}}_bloc.dart';
+
+/// Base class for all {{nameWords}} events.
+abstract class {{Name}}Event extends Equatable {
+  /// Base constructor for the subclasses.
+  const {{Name}}Event();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Requests the {{nameWords}} data.
+///
+/// Dispatched when the screen opens and when the user taps "Retry".
+class Get{{Name}}Event extends {{Name}}Event {
+  /// Creates the event.
+  const Get{{Name}}Event();
+}
+
+// TODO({{todoTag}}): Add more events for the feature.
+// Examples:
+// class Refresh{{Name}}Event extends {{Name}}Event {
+//   const Refresh{{Name}}Event();
+// }
+//
+// class Update{{Name}}Event extends {{Name}}Event {
+//   final {{Name}}Entity entity;
+//   const Update{{Name}}Event(this.entity);
+//   @override
+//   List<Object?> get props => [entity];
+// }
+//
+// class Reset{{Name}}Event extends {{Name}}Event {
+//   const Reset{{Name}}Event();
+// }

@@ -1,0 +1,162 @@
+// ─────────────────────────────────────────────────────────────
+// LoginPage
+// Login screen: email/password, Google, and links to sign-up and
+// forgot password. AppRouter redirects to home once signed in.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/mixings/mixings.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/features/auth/presentation/presentation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+/// Entry point of the login screen. Provides the [LoginBloc].
+class LoginPage extends StatelessWidget {
+  /// Creates the login page.
+  const LoginPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<LoginBloc>(),
+      child: const LoginView(),
+    );
+  }
+}
+
+/// UI of the login screen. Reads the [LoginBloc] provided by [LoginPage].
+class LoginView extends StatefulWidget {
+  /// Creates the login view.
+  const LoginView({super.key});
+
+  @override
+  State<LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<LoginView> with Validator {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    context.read<LoginBloc>().add(
+      LoginWithEmailSubmitted(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return BlocConsumer<LoginBloc, LoginState>(
+      listener: (context, state) {
+        if (state is! LoginFailure) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(authErrorMessage(l10n, state.errorCode))),
+          );
+      },
+      builder: (context, state) {
+        final isLoading = state is LoginLoading;
+        final enabled = !isLoading;
+
+        return AuthScaffold(
+          title: l10n.loginTitle,
+          subtitle: l10n.loginSubtitle,
+          children: [
+            Form(
+              key: _formKey,
+              child: AutofillGroup(
+                child: Column(
+                  children: [
+                    AuthTextField(
+                      controller: _emailController,
+                      label: l10n.emailLabel,
+                      icon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      enabled: enabled,
+                      validator: (value) => validateEmail(l10n, value),
+                    ),
+                    const SizedBox(height: 16),
+                    PasswordField(
+                      controller: _passwordController,
+                      label: l10n.passwordLabel,
+                      enabled: enabled,
+                      validator: (value) => validatePassword(l10n, value),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(
+                onPressed: enabled
+                    ? () => context.goNamed(AppRoutes.forgotPasswordName)
+                    : null,
+                child: Text(l10n.forgotPasswordLink),
+              ),
+            ),
+            const SizedBox(height: 8),
+            AuthSubmitButton(
+              label: l10n.loginButton,
+              isLoading: isLoading,
+              onPressed: _submit,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(l10n.orDivider),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 24),
+            GoogleSignInButton(
+              onPressed: enabled
+                  ? () => context.read<LoginBloc>().add(
+                      const LoginWithGoogleRequested(),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 24),
+            // Wrap: the link moves to a new line on narrow screens.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(l10n.noAccountPrompt),
+                TextButton(
+                  onPressed: enabled
+                      ? () => context.goNamed(AppRoutes.registerName)
+                      : null,
+                  child: Text(l10n.registerLink),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

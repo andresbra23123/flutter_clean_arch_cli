@@ -1,0 +1,68 @@
+// ─────────────────────────────────────────────────────────────
+// Failures
+// Domain-level errors returned by repositories and use cases as the
+// left side of Either<Failure, T> (dartz).
+// The presentation layer turns them into messages for the user.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+
+/// Base class for all failures in the app.
+///
+/// It is `sealed`, so every subclass must live in this file and a `switch`
+/// over a [Failure] is checked for exhaustiveness by the compiler.
+sealed class Failure extends Equatable {
+  /// Creates a failure with a descriptive [message].
+  const Failure({required this.message});
+
+  /// Human-readable description of what went wrong.
+  final String message;
+
+  @override
+  List<Object> get props => [message];
+}
+
+/// Failure caused by the remote API: connection error, timeout or error
+/// response.
+class ServerFailure extends Failure {
+  /// Creates a server failure.
+  const ServerFailure({required super.message});
+}
+
+/// Failure when the device has no internet connection.
+class NetworkFailure extends Failure {
+  /// Creates a network failure.
+  const NetworkFailure({required super.message});
+}
+
+/// Failure when local storage cannot be read or written, or the requested
+/// data is not stored.
+class CacheFailure extends Failure {
+  /// Creates a cache failure.
+  const CacheFailure({required super.message});
+}
+
+/// Failure for authentication errors (401, 403).
+class AuthFailure extends Failure {
+  /// Creates an auth failure, optionally with a machine-readable [code].
+  const AuthFailure({required super.message, this.code});
+
+  /// Identifies the error (e.g. `invalid-credential`), so the presentation
+  /// layer can show a translated message. `null` when it is unknown.
+  final String? code;
+
+  @override
+  List<Object> get props => [message, ?code];
+}
+
+/// Failure when a requested item is not found (404).
+class NotFoundFailure extends Failure {
+  /// Creates a not-found failure.
+  const NotFoundFailure({required super.message});
+}
+
+// TODO({{todoTag}}): Add custom failures specific to your domain below.
+// Example:
+// class ValidationFailure extends Failure {
+//   const ValidationFailure({required super.message});
+// }

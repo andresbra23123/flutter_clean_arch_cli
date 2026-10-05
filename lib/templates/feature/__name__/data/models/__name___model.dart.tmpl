@@ -1,0 +1,55 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Model
+// Data Transfer Object (DTO) of the {{nameWords}} feature.
+// Extends {{Name}}Entity and adds JSON serialization, so the data layer
+// can read and write it while the domain only sees the entity.
+// TODO({{todoTag}}): Add the fields of the API response.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+
+/// [{{Name}}Entity] with JSON serialization for the API and local storage.
+class {{Name}}Model extends {{Name}}Entity {
+  /// Creates the {{nameWords}} model.
+  const {{Name}}Model({
+    required super.id,
+    // TODO({{todoTag}}): Add the fields of the API response.
+    // required super.title,
+    // required super.description,
+  });
+
+  /// Creates an [{{Name}}Model] from a JSON map.
+  ///
+  /// Missing values fall back to an empty string; non-string ids (e.g.
+  /// numbers) are converted with `toString()`.
+  // TODO({{todoTag}}): Update the keys to match the real API response.
+  factory {{Name}}Model.fromJson(Map<String, dynamic> json) {
+    return {{Name}}Model(
+      id: json['id']?.toString() ?? '',
+      // TODO({{todoTag}}): Map the remaining JSON fields.
+      // title: json['title'] as String? ?? '',
+      // description: json['description'] as String? ?? '',
+    );
+  }
+
+  /// Converts this model into a JSON map for API requests and storage.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      // TODO({{todoTag}}): Add the remaining fields.
+      // 'title': title,
+      // 'description': description,
+    };
+  }
+
+  /// Returns a copy of this model with the given fields replaced.
+  {{Name}}Model copyWith({
+    String? id,
+    // TODO({{todoTag}}): Add a copyWith parameter for every field.
+  }) {
+    return {{Name}}Model(
+      id: id ?? this.id,
+      // TODO({{todoTag}}): Add the remaining fields.
+    );
+  }
+}

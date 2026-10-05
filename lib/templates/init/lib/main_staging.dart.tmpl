@@ -1,0 +1,9 @@
+/// Entry point for the staging flavor.
+library;
+
+import 'package:{{package}}/app/app.dart';
+import 'package:{{package}}/bootstrap.dart';
+
+Future<void> main() async {
+  await bootstrap(() => const App());
+}

@@ -1,0 +1,34 @@
+/// CLI that scaffolds a Flutter Clean Architecture project and its features.
+library;
+
+export 'src/android_flavors.dart';
+export 'src/auth_installer.dart';
+export 'src/cli_runner.dart';
+export 'src/commands/auth_command.dart';
+export 'src/commands/bloc_command.dart';
+export 'src/commands/doctor_command.dart';
+export 'src/commands/feature_command.dart';
+export 'src/commands/init_command.dart';
+export 'src/commands/model_command.dart';
+export 'src/commands/page_command.dart';
+export 'src/commands/remove_command.dart';
+export 'src/commands/rename_command.dart';
+export 'src/commands/test_command.dart';
+export 'src/commands/usecase_command.dart';
+export 'src/commands/widget_command.dart';
+export 'src/dependencies.dart';
+export 'src/doctor.dart';
+export 'src/generator.dart';
+export 'src/injector.dart';
+export 'src/item_tests.dart';
+export 'src/journal.dart';
+export 'src/json_model.dart';
+export 'src/naming.dart';
+export 'src/process_runner.dart';
+export 'src/project.dart';
+export 'src/project_config.dart';
+export 'src/registry.dart';
+export 'src/remover.dart';
+export 'src/renamer.dart';
+export 'src/usage_hints.dart';
+export 'src/version.dart';

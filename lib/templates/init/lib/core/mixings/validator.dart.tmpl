@@ -1,0 +1,65 @@
+// ─────────────────────────────────────────────────────────────
+// Validator
+// Form field validators shared by every form of the app.
+// Mix it into the State of a form and pass `context.l10n`, so the
+// messages are translated.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/l10n/l10n.dart';
+
+/// Validators for form fields.
+///
+/// Each one returns the translated error message, or `null` when the value
+/// is valid.
+mixin Validator {
+  /// Minimum length of a password.
+  static const int minPasswordLength = 8;
+
+  static final RegExp _email = RegExp(
+    r'^.+@[a-zA-Z]+\.{1}[a-zA-Z]+(\.{0,1}[a-zA-Z]+)$',
+  );
+
+  // Name validation
+  String? validateName(AppLocalizations l10n, String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return l10n.validationNameRequired;
+    }
+    return null;
+  }
+
+  // Email validation
+  String? validateEmail(AppLocalizations l10n, String? value) {
+    // The forms trim the email before submitting it, so validate it trimmed.
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) {
+      return l10n.validationEmailRequired;
+    } else if (!_email.hasMatch(email)) {
+      return l10n.validationEmailInvalid;
+    }
+    return null;
+  }
+
+  // Password validation
+  String? validatePassword(AppLocalizations l10n, String? value) {
+    if (value == null || value.isEmpty) {
+      return l10n.validationPasswordRequired;
+    } else if (value.length < minPasswordLength) {
+      return l10n.validationPasswordTooShort(minPasswordLength);
+    }
+    return null;
+  }
+
+  // Confirm password validation
+  String? validateConfirmPassword(
+    AppLocalizations l10n,
+    String? value,
+    String password,
+  ) {
+    if (value == null || value.isEmpty) {
+      return l10n.validationConfirmPasswordRequired;
+    } else if (value != password) {
+      return l10n.validationPasswordsDontMatch;
+    }
+    return null;
+  }
+}

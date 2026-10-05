@@ -1,0 +1,46 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}State
+// Every state that {{Name}}Cubit can emit.
+// ─────────────────────────────────────────────────────────────
+
+part of '{{name}}_cubit.dart';
+
+/// Base class for all {{nameWords}} states.
+abstract class {{Name}}State extends Equatable {
+  /// Base constructor for the subclasses.
+  const {{Name}}State();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Nothing has been requested yet.
+class {{Name}}Initial extends {{Name}}State {
+  /// Creates the initial state.
+  const {{Name}}Initial();
+}
+
+/// Work in progress. The UI shows a loading indicator.
+class {{Name}}Loading extends {{Name}}State {
+  /// Creates the loading state.
+  const {{Name}}Loading();
+}
+
+/// The work finished successfully.
+// TODO({{todoTag}}): Add the loaded data as fields (and to props).
+class {{Name}}Loaded extends {{Name}}State {
+  /// Creates the loaded state.
+  const {{Name}}Loaded();
+}
+
+/// The work failed.
+class {{Name}}Error extends {{Name}}State {
+  /// Creates the error state with [message].
+  const {{Name}}Error({required this.message});
+
+  /// Description of the error, shown to the user.
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
+}

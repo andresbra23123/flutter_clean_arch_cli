@@ -1,0 +1,63 @@
+// ─────────────────────────────────────────────────────────────
+// ApiClient
+// Configures the Dio HTTP client shared by every remote data source.
+// The base URL and timeouts come from AppConstants.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/constants/constants.dart';
+import 'package:dio/dio.dart';
+
+/// HTTP client used by the remote data sources to call the API.
+///
+/// Wraps a preconfigured [Dio] instance with the base URL, timeouts, JSON
+/// headers and the [ApiInterceptor]. Dio throws a [DioException] for
+/// connection errors, timeouts and non-2xx responses, so callers must catch
+/// it and convert it into a `ServerException`.
+class ApiClient {
+  /// Creates the client with the configuration from [AppConstants].
+  ApiClient() {
+    _dio = Dio(
+      BaseOptions(
+        // TODO({{todoTag}}): Set the real API base URL in AppConstants.baseUrl.
+        baseUrl: AppConstants.baseUrl,
+        connectTimeout: const Duration(seconds: AppConstants.connectTimeout),
+        receiveTimeout: const Duration(seconds: AppConstants.receiveTimeout),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
+    // Logs every request, response and error.
+    _dio.interceptors.add(ApiInterceptor());
+  }
+  late final Dio _dio;
+
+  /// The underlying [Dio] instance, for requests the helpers do not cover.
+  Dio get dio => _dio;
+
+  /// Sends a GET request to [path] with optional [queryParameters].
+  Future<Response> get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    return _dio.get(path, queryParameters: queryParameters);
+  }
+
+  /// Sends a POST request to [path] with [data] as the body.
+  Future<Response> post(String path, {dynamic data}) async {
+    return _dio.post(path, data: data);
+  }
+
+  /// Sends a PUT request to [path] with [data] as the body.
+  Future<Response> put(String path, {dynamic data}) async {
+    return _dio.put(path, data: data);
+  }
+
+  /// Sends a DELETE request to [path].
+  Future<Response> delete(String path) async {
+    return _dio.delete(path);
+  }
+}

@@ -1,0 +1,47 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}LocalDataSourceImpl
+// Placeholder: nothing is stored yet. getCached{{Name}}() always throws
+// and cache{{Name}}() does nothing.
+// TODO({{todoTag}}): Implement with SharedPreferences, Hive or SQLite.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/{{name}}/data/data.dart';
+
+/// [{{Name}}LocalDataSourceInter] implementation that will use local device storage.
+///
+/// Not implemented yet: see the TODOs in each method.
+class {{Name}}LocalDataSourceImpl implements {{Name}}LocalDataSourceInter {
+  // TODO({{todoTag}}): Inject the storage client through the constructor.
+  // Example:
+  // {{Name}}LocalDataSourceImpl({required this.sharedPreferences});
+  // final SharedPreferences sharedPreferences;
+
+  /// Key under which the serialized [{{Name}}Model] is stored.
+  // Used once the storage is implemented (see the TODOs below).
+  // ignore: unused_field
+  static const String _cacheKey = 'cached_{{name}}';
+
+  @override
+  Future<{{Name}}Model> getCached{{Name}}() async {
+    // TODO({{todoTag}}): Read and decode the cached value.
+    // Example with SharedPreferences:
+    // final jsonString = sharedPreferences.getString(_cacheKey);
+    // if (jsonString != null) {
+    //   return {{Name}}Model.fromJson(
+    //     json.decode(jsonString) as Map<String, dynamic>,
+    //   );
+    // }
+    throw const CacheException(message: 'No cached {{nameWords}} data found.');
+  }
+
+  @override
+  Future<void> cache{{Name}}({{Name}}Model model) async {
+    // TODO({{todoTag}}): Encode and save the value. Until then this is a no-op.
+    // Example with SharedPreferences:
+    // await sharedPreferences.setString(
+    //   _cacheKey,
+    //   json.encode(model.toJson()),
+    // );
+  }
+}

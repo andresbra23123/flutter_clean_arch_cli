@@ -1,0 +1,36 @@
+// ─────────────────────────────────────────────────────────────
+// LoginEvent
+// Every event that LoginBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'login_bloc.dart';
+
+/// Base class for all login events.
+abstract class LoginEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const LoginEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// The user submitted the email/password form.
+class LoginWithEmailSubmitted extends LoginEvent {
+  /// Creates the event with the form values.
+  const LoginWithEmailSubmitted({required this.email, required this.password});
+
+  /// Email typed by the user.
+  final String email;
+
+  /// Password typed by the user.
+  final String password;
+
+  @override
+  List<Object?> get props => [email, password];
+}
+
+/// The user tapped "Continue with Google".
+class LoginWithGoogleRequested extends LoginEvent {
+  /// Creates the event.
+  const LoginWithGoogleRequested();
+}

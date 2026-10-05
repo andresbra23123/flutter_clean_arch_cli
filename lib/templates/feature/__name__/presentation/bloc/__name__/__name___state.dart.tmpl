@@ -1,0 +1,65 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}State
+// Every state that {{Name}}Bloc can emit.
+// The UI listens to these states and rebuilds accordingly.
+// ─────────────────────────────────────────────────────────────
+
+part of '{{name}}_bloc.dart';
+
+/// Base class for all {{nameWords}} states.
+abstract class {{Name}}State extends Equatable {
+  /// Base constructor for the subclasses.
+  const {{Name}}State();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Nothing has been requested yet.
+class {{Name}}Initial extends {{Name}}State {
+  /// Creates the initial state.
+  const {{Name}}Initial();
+}
+
+/// The data is being fetched. The UI shows a loading indicator.
+class {{Name}}Loading extends {{Name}}State {
+  /// Creates the loading state.
+  const {{Name}}Loading();
+}
+
+/// The data was loaded successfully.
+class {{Name}}Loaded extends {{Name}}State {
+
+  /// Creates the loaded state with [entity].
+  const {{Name}}Loaded({required this.entity});
+  /// The loaded data, to be rendered by the UI.
+  final {{Name}}Entity entity;
+
+  @override
+  List<Object?> get props => [entity];
+}
+
+/// The data could not be loaded.
+class {{Name}}Error extends {{Name}}State {
+
+  /// Creates the error state with [message].
+  const {{Name}}Error({required this.message});
+  /// Description of the error, shown to the user.
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
+}
+
+// TODO({{todoTag}}): Add more states if the feature needs them.
+// Examples:
+// class {{Name}}Empty extends {{Name}}State {
+//   const {{Name}}Empty();
+// }
+//
+// class {{Name}}Refreshing extends {{Name}}State {
+//   final {{Name}}Entity currentEntity;
+//   const {{Name}}Refreshing({required this.currentEntity});
+//   @override
+//   List<Object?> get props => [currentEntity];
+// }

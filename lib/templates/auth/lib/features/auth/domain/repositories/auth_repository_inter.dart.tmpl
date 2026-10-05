@@ -1,0 +1,44 @@
+// ─────────────────────────────────────────────────────────────
+// AuthRepositoryInter (contract)
+// Defines the authentication operations the domain needs.
+// The data layer implements it; use cases depend only on this contract.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// Authentication contract of the auth feature.
+///
+/// Operations return a `Failure` on the left side instead of throwing.
+abstract interface class AuthRepositoryInter {
+  /// Emits the current user every time it signs in, signs out or updates
+  /// its profile, and `null` when there is no session.
+  Stream<UserEntity?> userChanges();
+
+  /// The signed-in user, or `null` if there is no session.
+  UserEntity? get currentUser;
+
+  /// Signs in with [email] and [password].
+  FutureEither<UserEntity> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
+  /// Creates an account with [email] and [password] and saves [name] as
+  /// its display name. The user is signed in afterwards.
+  FutureEither<UserEntity> signUpWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  });
+
+  /// Signs in with a Google account chosen by the user.
+  FutureEither<UserEntity> signInWithGoogle();
+
+  /// Sends an email with a link to reset the password of [email].
+  FutureEither<Unit> sendPasswordResetEmail({required String email});
+
+  /// Ends the session (Firebase and Google).
+  FutureEither<Unit> signOut();
+}

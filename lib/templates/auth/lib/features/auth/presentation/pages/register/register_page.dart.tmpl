@@ -1,0 +1,164 @@
+// ─────────────────────────────────────────────────────────────
+// RegisterPage
+// Sign-up screen: name, email, password and confirmation.
+// AppRouter redirects to home once the account is created.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/mixings/mixings.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/features/auth/presentation/presentation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+/// Entry point of the sign-up screen. Provides the [RegisterBloc].
+class RegisterPage extends StatelessWidget {
+  /// Creates the sign-up page.
+  const RegisterPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<RegisterBloc>(),
+      child: const RegisterView(),
+    );
+  }
+}
+
+/// UI of the sign-up screen. Reads the [RegisterBloc] provided by
+/// [RegisterPage].
+class RegisterView extends StatefulWidget {
+  /// Creates the sign-up view.
+  const RegisterView({super.key});
+
+  @override
+  State<RegisterView> createState() => _RegisterViewState();
+}
+
+class _RegisterViewState extends State<RegisterView> with Validator {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    context.read<RegisterBloc>().add(
+      RegisterSubmitted(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return BlocConsumer<RegisterBloc, RegisterState>(
+      listener: (context, state) {
+        if (state is! RegisterFailure) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(authErrorMessage(l10n, state.errorCode))),
+          );
+      },
+      builder: (context, state) {
+        final isLoading = state is RegisterLoading;
+        final enabled = !isLoading;
+
+        return AuthScaffold(
+          title: l10n.registerTitle,
+          showAppBar: true,
+          children: [
+            Form(
+              key: _formKey,
+              child: AutofillGroup(
+                child: Column(
+                  children: [
+                    AuthTextField(
+                      controller: _nameController,
+                      label: l10n.nameLabel,
+                      icon: Icons.person_outline,
+                      keyboardType: TextInputType.name,
+                      autofillHints: const [AutofillHints.name],
+                      enabled: enabled,
+                      validator: (value) => validateName(l10n, value),
+                    ),
+                    const SizedBox(height: 16),
+                    AuthTextField(
+                      controller: _emailController,
+                      label: l10n.emailLabel,
+                      icon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      enabled: enabled,
+                      validator: (value) => validateEmail(l10n, value),
+                    ),
+                    const SizedBox(height: 16),
+                    PasswordField(
+                      controller: _passwordController,
+                      label: l10n.passwordLabel,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.newPassword],
+                      enabled: enabled,
+                      validator: (value) => validatePassword(l10n, value),
+                    ),
+                    const SizedBox(height: 16),
+                    PasswordField(
+                      controller: _confirmController,
+                      label: l10n.confirmPasswordLabel,
+                      autofillHints: const [AutofillHints.newPassword],
+                      enabled: enabled,
+                      validator: (value) => validateConfirmPassword(
+                        l10n,
+                        value,
+                        _passwordController.text,
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            AuthSubmitButton(
+              label: l10n.registerButton,
+              isLoading: isLoading,
+              onPressed: _submit,
+            ),
+            const SizedBox(height: 24),
+            // Wrap: the link moves to a new line on narrow screens.
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(l10n.haveAccountPrompt),
+                TextButton(
+                  onPressed: enabled
+                      ? () => context.goNamed(AppRoutes.loginName)
+                      : null,
+                  child: Text(l10n.loginLink),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

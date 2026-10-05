@@ -1,0 +1,63 @@
+// ─────────────────────────────────────────────────────────────
+// Exceptions
+// Data-layer exceptions thrown by the data sources.
+// Repository implementations catch them and convert them into Failures,
+// so they never reach the domain or presentation layers.
+// ─────────────────────────────────────────────────────────────
+
+/// Base class for all data-layer exceptions in the app.
+///
+/// It is `sealed`, so every subclass must live in this file and a `switch`
+/// over an [AppException] is checked for exhaustiveness by the compiler.
+sealed class AppException implements Exception {
+  /// Creates an exception with a descriptive [message].
+  const AppException({required this.message});
+
+  /// Human-readable description of what went wrong.
+  final String message;
+
+  @override
+  String toString() => 'AppException: $message';
+}
+
+/// Thrown when a request to the remote API fails: connection error,
+/// timeout, error response or unexpected response body.
+class ServerException extends AppException {
+  /// Creates a server exception, optionally with the HTTP [statusCode].
+  const ServerException({required super.message, this.statusCode});
+
+  /// HTTP status code of the response, or `null` if there was no response.
+  final int? statusCode;
+
+  @override
+  String toString() => 'ServerException: $message (statusCode: $statusCode)';
+}
+
+/// Thrown when there is no internet connection.
+class NetworkException extends AppException {
+  /// Creates a network exception with a default [message].
+  const NetworkException({super.message = 'No internet connection.'});
+}
+
+/// Thrown when reading from or writing to local storage fails, or when the
+/// requested data is not stored.
+class CacheException extends AppException {
+  /// Creates a cache exception.
+  const CacheException({required super.message});
+}
+
+/// Thrown when authentication fails, e.g. invalid credentials or an
+/// expired session.
+class AuthException extends AppException {
+  /// Creates an auth exception, optionally with a machine-readable [code].
+  const AuthException({required super.message, this.code});
+
+  /// Identifies the error (e.g. `invalid-credential`), so the presentation
+  /// layer can show a translated message. `null` when it is unknown.
+  final String? code;
+
+  @override
+  String toString() => 'AuthException: $message (code: $code)';
+}
+
+// TODO({{todoTag}}): Add more custom exceptions for your features below.

@@ -1,0 +1,26 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}RepositoryInter (contract)
+// Defines what the domain layer needs from the {{nameWords}} data.
+// The domain depends only on this contract; the data layer
+// implements it in {{Name}}RepositoryImpl.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// {{Name}} repository contract.
+///
+/// Implementations never throw: every error is returned as a [Failure] on
+/// the left side of the [Either].
+abstract interface class {{Name}}RepositoryInter {
+  /// Returns the [{{Name}}Entity] on success, or a [Failure] on error.
+  Future<Either<Failure, {{Name}}Entity>> get{{Name}}();
+
+  // TODO({{todoTag}}): Add more repository method signatures as needed.
+  // Example:
+  // Future<Either<Failure, Unit>> create{{Name}}({{Name}}Entity entity);
+  // Future<Either<Failure, List<{{Name}}Entity>>> getAll{{Name}}s();
+  // Future<Either<Failure, Unit>> delete{{Name}}(String id);
+  // flutter_clean_arch:repository-methods
+}

@@ -1,0 +1,41 @@
+import 'package:{{package}}/features/auth/auth.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('authErrorCodeFromFirebase', () {
+    test('maps every wrong-credentials variant to invalidCredentials', () {
+      for (final code in [
+        'invalid-credential',
+        'user-not-found',
+        'wrong-password',
+      ]) {
+        expect(
+          authErrorCodeFromFirebase(code),
+          AuthErrorCodes.invalidCredentials,
+          reason: code,
+        );
+      }
+    });
+
+    test('maps the other known Firebase codes', () {
+      const expected = {
+        'invalid-email': AuthErrorCodes.invalidEmail,
+        'user-disabled': AuthErrorCodes.userDisabled,
+        'email-already-in-use': AuthErrorCodes.emailAlreadyInUse,
+        'weak-password': AuthErrorCodes.weakPassword,
+        'too-many-requests': AuthErrorCodes.tooManyRequests,
+        'network-request-failed': AuthErrorCodes.network,
+        'operation-not-allowed': AuthErrorCodes.providerDisabled,
+        'account-exists-with-different-credential':
+            AuthErrorCodes.accountExistsWithDifferentProvider,
+      };
+      for (final MapEntry(key: firebaseCode, value: code) in expected.entries) {
+        expect(authErrorCodeFromFirebase(firebaseCode), code);
+      }
+    });
+
+    test('returns null for an unknown code', () {
+      expect(authErrorCodeFromFirebase('something-new'), isNull);
+    });
+  });
+}

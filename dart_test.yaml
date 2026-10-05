@@ -1,0 +1,3 @@
+tags:
+  # Slow tests that create a real Flutter project (test_e2e/).
+  e2e:

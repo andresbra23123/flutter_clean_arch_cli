@@ -1,0 +1,104 @@
+// ─────────────────────────────────────────────────────────────
+// AuthTextField / PasswordField
+// Text fields of the auth forms. PasswordField adds the button that
+// shows or hides the password.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:flutter/material.dart';
+
+/// Labeled text field used by the auth forms.
+class AuthTextField extends StatelessWidget {
+  /// Creates the field.
+  const AuthTextField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.validator,
+    this.keyboardType,
+    this.textInputAction = TextInputAction.next,
+    this.autofillHints,
+    this.enabled = true,
+    this.onSubmitted,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final FormFieldValidator<String>? validator;
+  final TextInputType? keyboardType;
+  final TextInputAction textInputAction;
+  final Iterable<String>? autofillHints;
+  final bool enabled;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      autofillHints: autofillHints,
+      validator: validator,
+      onFieldSubmitted: onSubmitted,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+    );
+  }
+}
+
+/// Password field with a button to show or hide the text.
+class PasswordField extends StatefulWidget {
+  /// Creates the field.
+  const PasswordField({
+    required this.controller,
+    required this.label,
+    this.validator,
+    this.textInputAction = TextInputAction.done,
+    this.autofillHints = const [AutofillHints.password],
+    this.enabled = true,
+    this.onSubmitted,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final FormFieldValidator<String>? validator;
+  final TextInputAction textInputAction;
+  final Iterable<String>? autofillHints;
+  final bool enabled;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  State<PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<PasswordField> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return TextFormField(
+      controller: widget.controller,
+      enabled: widget.enabled,
+      obscureText: _obscure,
+      keyboardType: TextInputType.visiblePassword,
+      textInputAction: widget.textInputAction,
+      autofillHints: widget.autofillHints,
+      validator: widget.validator,
+      onFieldSubmitted: widget.onSubmitted,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        prefixIcon: const Icon(Icons.lock_outline),
+        suffixIcon: IconButton(
+          tooltip: _obscure ? l10n.showPassword : l10n.hidePassword,
+          icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+      ),
+    );
+  }
+}

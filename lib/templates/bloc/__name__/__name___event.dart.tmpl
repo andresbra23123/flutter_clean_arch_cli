@@ -1,0 +1,22 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Event
+// Every event that {{Name}}Bloc can receive.
+// TODO({{todoTag}}): Add events matching the interactions.
+// ─────────────────────────────────────────────────────────────
+
+part of '{{name}}_bloc.dart';
+
+/// Base class for all {{nameWords}} events.
+abstract class {{Name}}Event extends Equatable {
+  /// Base constructor for the subclasses.
+  const {{Name}}Event();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Dispatched when the screen that uses the BLoC opens.
+class {{Name}}Started extends {{Name}}Event {
+  /// Creates the event.
+  const {{Name}}Started();
+}

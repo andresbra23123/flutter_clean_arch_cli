@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// UserEntity
+// The signed-in user as the domain layer sees it.
+// Pure Dart: it does not know about Firebase.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+
+/// Signed-in user.
+///
+/// Two entities with the same field values are equal ([Equatable]).
+class UserEntity extends Equatable {
+  /// Creates the user entity.
+  const UserEntity({
+    required this.id,
+    required this.email,
+    this.displayName,
+    this.photoUrl,
+  });
+
+  /// Unique identifier (Firebase UID).
+  final String id;
+
+  /// Email address. Empty if the provider did not share one.
+  final String email;
+
+  /// Name shown in the UI, if the user has one.
+  final String? displayName;
+
+  /// URL of the profile picture, if the user has one.
+  final String? photoUrl;
+
+  @override
+  List<Object?> get props => [id, email, displayName, photoUrl];
+
+  /// Shows every field with its name, e.g. in the BLoC logs.
+  @override
+  String toString() =>
+      'UserEntity(id: $id, email: $email, displayName: $displayName, '
+      'photoUrl: $photoUrl)';
+}

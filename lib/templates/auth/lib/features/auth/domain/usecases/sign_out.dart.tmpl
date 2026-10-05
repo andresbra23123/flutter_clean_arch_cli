@@ -1,0 +1,23 @@
+// ─────────────────────────────────────────────────────────────
+// SignOutUseCase
+// Ends the current session.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// Signs the current user out.
+class SignOutUseCaseImpl implements UseCaseInter<Unit, NoParams> {
+  /// Creates the use case with the [repository] it uses.
+  SignOutUseCaseImpl({required this.repository});
+
+  /// Ends the session.
+  final AuthRepositoryInter repository;
+
+  @override
+  FutureEither<Unit> call(NoParams params) {
+    return repository.signOut();
+  }
+}

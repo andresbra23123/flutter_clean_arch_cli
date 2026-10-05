@@ -1,0 +1,42 @@
+// ─────────────────────────────────────────────────────────────
+// SignInWithEmailUseCase
+// Signs the user in with email and password.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:equatable/equatable.dart';
+
+/// Signs in with the email and password in [SignInParams].
+class SignInWithEmailUseCaseImpl
+    implements UseCaseInter<UserEntity, SignInParams> {
+  /// Creates the use case with the [repository] it uses.
+  SignInWithEmailUseCaseImpl({required this.repository});
+
+  /// Performs the authentication.
+  final AuthRepositoryInter repository;
+
+  @override
+  FutureEither<UserEntity> call(SignInParams params) {
+    return repository.signInWithEmail(
+      email: params.email,
+      password: params.password,
+    );
+  }
+}
+
+/// Input of [SignInWithEmailUseCaseImpl].
+class SignInParams extends Equatable {
+  /// Creates the params.
+  const SignInParams({required this.email, required this.password});
+
+  /// Email of the account.
+  final String email;
+
+  /// Password of the account.
+  final String password;
+
+  @override
+  List<Object> get props => [email, password];
+}

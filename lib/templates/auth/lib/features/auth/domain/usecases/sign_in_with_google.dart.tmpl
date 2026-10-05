@@ -1,0 +1,23 @@
+// ─────────────────────────────────────────────────────────────
+// SignInWithGoogleUseCase
+// Signs the user in with a Google account.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+
+/// Opens the Google account picker and signs in with the chosen account.
+class SignInWithGoogleUseCaseImpl
+    implements UseCaseInter<UserEntity, NoParams> {
+  /// Creates the use case with the [repository] it uses.
+  SignInWithGoogleUseCaseImpl({required this.repository});
+
+  /// Performs the authentication.
+  final AuthRepositoryInter repository;
+
+  @override
+  FutureEither<UserEntity> call(NoParams params) {
+    return repository.signInWithGoogle();
+  }
+}

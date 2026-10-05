@@ -1,0 +1,9 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:dartz/dartz.dart';
+
+/// A [Failure] on the left side or a value of type [T] on the right side.
+typedef EitherOr<T> = Either<Failure, T>;
+
+/// Asynchronous [EitherOr], the usual return type of repositories and
+/// use cases.
+typedef FutureEither<T> = Future<EitherOr<T>>;

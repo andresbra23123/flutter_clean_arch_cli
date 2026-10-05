@@ -1,0 +1,50 @@
+// ─────────────────────────────────────────────────────────────
+// SignUpWithEmailUseCase
+// Creates an account with email and password and signs it in.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:equatable/equatable.dart';
+
+/// Creates an account with the data in [SignUpParams].
+class SignUpWithEmailUseCaseImpl
+    implements UseCaseInter<UserEntity, SignUpParams> {
+  /// Creates the use case with the [repository] it uses.
+  SignUpWithEmailUseCaseImpl({required this.repository});
+
+  /// Creates the account.
+  final AuthRepositoryInter repository;
+
+  @override
+  FutureEither<UserEntity> call(SignUpParams params) {
+    return repository.signUpWithEmail(
+      name: params.name,
+      email: params.email,
+      password: params.password,
+    );
+  }
+}
+
+/// Input of [SignUpWithEmailUseCaseImpl].
+class SignUpParams extends Equatable {
+  /// Creates the params.
+  const SignUpParams({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  /// Display name of the new user.
+  final String name;
+
+  /// Email of the new account.
+  final String email;
+
+  /// Password of the new account.
+  final String password;
+
+  @override
+  List<Object> get props => [name, email, password];
+}

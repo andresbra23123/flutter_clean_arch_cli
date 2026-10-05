@@ -1,0 +1,18 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/features/{{feature}}/{{feature}}.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('starts in {{Name}}Initial', () {
+    expect({{Name}}Bloc().state, const {{Name}}Initial());
+  });
+
+  // TODO({{todoTag}}): Mock the use cases the BLoC receives and test the
+  // Loaded and Error results of each event.
+  blocTest<{{Name}}Bloc, {{Name}}State>(
+    'emits Loading and Loaded on {{Name}}Started',
+    build: {{Name}}Bloc.new,
+    act: (bloc) => bloc.add(const {{Name}}Started()),
+    expect: () => const [{{Name}}Loading(), {{Name}}Loaded()],
+  );
+}

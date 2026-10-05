@@ -1,0 +1,46 @@
+// ─────────────────────────────────────────────────────────────
+// RegisterBloc
+// Handles the sign-up form.
+// It does not navigate: AppRouter redirects once AuthBloc sees the user.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:{{package}}/features/auth/presentation/presentation.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part 'register_event.dart';
+part 'register_state.dart';
+
+/// Manages the state of the sign-up screen.
+///
+/// Created by get_it as a factory, so every screen gets its own instance.
+class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
+  /// Creates the BLoC in the [RegisterInitial] state.
+  RegisterBloc({required this._signUpWithEmail})
+    : super(const RegisterInitial()) {
+    on<RegisterSubmitted>(_onSubmitted);
+  }
+
+  final SignUpWithEmailUseCaseImpl _signUpWithEmail;
+
+  /// Handles [RegisterSubmitted]: emits [RegisterLoading], then
+  /// [RegisterSuccess] or [RegisterFailure].
+  Future<void> _onSubmitted(
+    RegisterSubmitted event,
+    Emitter<RegisterState> emit,
+  ) async {
+    emit(const RegisterLoading());
+    final result = await _signUpWithEmail(
+      SignUpParams(
+        name: event.name,
+        email: event.email,
+        password: event.password,
+      ),
+    );
+    result.fold(
+      (failure) => emit(RegisterFailure(errorCode: authErrorCode(failure))),
+      (_) => emit(const RegisterSuccess()),
+    );
+  }
+}

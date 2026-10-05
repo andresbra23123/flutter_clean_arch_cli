@@ -1,0 +1,45 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Entity
+// Core business object of the {{nameWords}} feature.
+// Pure Dart: it depends on nothing but equatable, so the domain layer
+// stays independent of Flutter, the API and the storage.
+// TODO({{todoTag}}): Add the fields that represent the business object.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+
+/// {{Name}} data as the domain layer sees it.
+///
+/// Two entities with the same field values are equal ([Equatable]).
+class {{Name}}Entity extends Equatable {
+
+  // TODO({{todoTag}}): Add the entity fields here.
+  // Example:
+  // final String title;
+  // final String description;
+  // final DateTime createdAt;
+  // final bool isActive;
+
+  /// Creates the {{nameWords}} entity.
+  const {{Name}}Entity({
+    required this.id,
+    // TODO({{todoTag}}): Add the required fields.
+    // required this.title,
+    // required this.description,
+    // required this.createdAt,
+    // this.isActive = true,
+  });
+
+  /// Unique identifier.
+  final String id;
+
+  @override
+  List<Object?> get props => [
+    id,
+    // TODO({{todoTag}}): Add every field to props so equality checks use it.
+    // title,
+    // description,
+    // createdAt,
+    // isActive,
+  ];
+}

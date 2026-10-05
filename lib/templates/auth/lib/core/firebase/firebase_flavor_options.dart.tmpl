@@ -1,0 +1,35 @@
+// ─────────────────────────────────────────────────────────────
+// AppFlavor / firebaseOptionsFor
+// Pick the Firebase options of each flavor. The generated
+// firebase_options_*.dart files all declare `DefaultFirebaseOptions`, so
+// they are imported with a prefix here instead of being exported.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/firebase/firebase_options_development.dart'
+    as development;
+import 'package:{{package}}/core/firebase/firebase_options_production.dart'
+    as production;
+import 'package:{{package}}/core/firebase/firebase_options_staging.dart'
+    as staging;
+import 'package:firebase_core/firebase_core.dart';
+
+/// Build flavors of the app.
+enum AppFlavor {
+  /// Local development.
+  development,
+
+  /// Pre-release testing.
+  staging,
+
+  /// Published app.
+  production,
+}
+
+/// Firebase options of [flavor] for the current platform.
+FirebaseOptions firebaseOptionsFor(AppFlavor flavor) {
+  return switch (flavor) {
+    AppFlavor.development => development.DefaultFirebaseOptions.currentPlatform,
+    AppFlavor.staging => staging.DefaultFirebaseOptions.currentPlatform,
+    AppFlavor.production => production.DefaultFirebaseOptions.currentPlatform,
+  };
+}

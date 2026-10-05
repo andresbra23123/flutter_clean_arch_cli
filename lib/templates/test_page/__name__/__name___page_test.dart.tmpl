@@ -1,0 +1,13 @@
+import 'package:{{package}}/features/{{feature}}/{{feature}}.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../../../helpers/helpers.dart';
+
+void main() {
+  testWidgets('shows the {{nameWords}} page', (tester) async {
+    await tester.pumpApp(const {{Name}}Page());
+
+    // TODO({{todoTag}}): Check the real content once the UI is built.
+    expect(find.text('{{nameTitle}}'), findsWidgets);
+  });
+}

@@ -1,0 +1,77 @@
+import 'dart:async';
+
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/auth.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockWatchUser extends Mock implements WatchUserUseCaseImpl {}
+
+class _MockGetCurrentUser extends Mock implements GetCurrentUserUseCaseImpl {}
+
+class _MockSignOut extends Mock implements SignOutUseCaseImpl {}
+
+void main() {
+  late _MockWatchUser watchUser;
+  late _MockGetCurrentUser getCurrentUser;
+  late _MockSignOut signOut;
+  late StreamController<UserEntity?> users;
+
+  const user = UserEntity(id: 'uid', email: 'ana@test.com');
+
+  setUpAll(() => registerFallbackValue(NoParams()));
+
+  setUp(() {
+    watchUser = _MockWatchUser();
+    getCurrentUser = _MockGetCurrentUser();
+    signOut = _MockSignOut();
+    // Broadcast: close() completes even when nothing is listening.
+    users = StreamController<UserEntity?>.broadcast();
+    when(() => watchUser()).thenAnswer((_) => users.stream);
+    when(() => getCurrentUser()).thenReturn(null);
+  });
+
+  tearDown(() => users.close());
+
+  AuthBloc build() => AuthBloc(
+    watchUser: watchUser,
+    getCurrentUser: getCurrentUser,
+    signOut: signOut,
+  );
+
+  test('starts authenticated when Firebase restored a session', () {
+    when(() => getCurrentUser()).thenReturn(user);
+    expect(build().state, const AuthAuthenticated(user: user));
+  });
+
+  test('starts unauthenticated without a session', () {
+    expect(build().state, const AuthUnauthenticated());
+  });
+
+  blocTest<AuthBloc, AuthState>(
+    'follows the user stream',
+    build: build,
+    act: (bloc) async {
+      bloc.add(const AuthSubscriptionRequested());
+      await Future<void>.delayed(Duration.zero);
+      users
+        ..add(user)
+        ..add(null);
+    },
+    expect: () => const [
+      AuthAuthenticated(user: user),
+      AuthUnauthenticated(),
+    ],
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'calls the sign-out use case',
+    setUp: () =>
+        when(() => signOut(any())).thenAnswer((_) async => const Right(unit)),
+    build: build,
+    act: (bloc) => bloc.add(const AuthSignOutRequested()),
+    verify: (_) => verify(() => signOut(any())).called(1),
+  );
+}

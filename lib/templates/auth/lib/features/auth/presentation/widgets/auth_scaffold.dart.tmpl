@@ -1,0 +1,116 @@
+// ─────────────────────────────────────────────────────────────
+// AuthScaffold / AuthSubmitButton / GoogleSignInButton
+// Shared layout and buttons of the auth screens.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:flutter/material.dart';
+
+/// Layout of the auth screens: a centered, scrollable column with a
+/// title and subtitle, limited in width on large screens.
+class AuthScaffold extends StatelessWidget {
+  /// Creates the layout.
+  const AuthScaffold({
+    required this.title,
+    required this.children,
+    this.subtitle,
+    this.showAppBar = false,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+
+  /// Shows an AppBar with a back button (for pages pushed over login).
+  final bool showAppBar;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: showAppBar ? AppBar() : null,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineMedium,
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle!,
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyLarge,
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+                  ...children,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Main button of an auth form. Shows a spinner while [isLoading].
+class AuthSubmitButton extends StatelessWidget {
+  /// Creates the button.
+  const AuthSubmitButton({
+    required this.label,
+    required this.onPressed,
+    required this.isLoading,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: isLoading ? null : onPressed,
+      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+      child: isLoading
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(label),
+    );
+  }
+}
+
+/// "Continue with Google" button.
+class GoogleSignInButton extends StatelessWidget {
+  /// Creates the button. It is disabled when [onPressed] is `null`.
+  const GoogleSignInButton({required this.onPressed, super.key});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+      icon: const Text(
+        'G',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+      label: Text(context.l10n.googleButton),
+    );
+  }
+}

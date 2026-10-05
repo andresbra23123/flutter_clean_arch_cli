@@ -1,0 +1,29 @@
+// ─────────────────────────────────────────────────────────────
+// GoRouterRefreshStream
+// Adapts a Stream to the Listenable that GoRouter.refreshListenable
+// expects, so the router re-runs its redirect on every event.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+/// `ChangeNotifier` that notifies its listeners on every event of
+/// `stream`.
+///
+/// Pass it to `GoRouter.refreshListenable` so `redirect` runs again when,
+/// for example, the session state changes.
+class GoRouterRefreshStream extends ChangeNotifier {
+  /// Starts listening to [stream].
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    unawaited(_subscription.cancel());
+    super.dispose();
+  }
+}

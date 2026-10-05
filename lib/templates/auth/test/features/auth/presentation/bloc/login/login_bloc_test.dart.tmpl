@@ -1,0 +1,96 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/auth/auth.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockSignInWithEmail extends Mock implements SignInWithEmailUseCaseImpl {}
+
+class _MockSignInWithGoogle extends Mock
+    implements SignInWithGoogleUseCaseImpl {}
+
+void main() {
+  late _MockSignInWithEmail signInWithEmail;
+  late _MockSignInWithGoogle signInWithGoogle;
+
+  const user = UserEntity(id: 'uid', email: 'ana@test.com');
+  const params = SignInParams(email: 'ana@test.com', password: '123456');
+
+  setUpAll(() {
+    registerFallbackValue(params);
+    registerFallbackValue(NoParams());
+  });
+
+  setUp(() {
+    signInWithEmail = _MockSignInWithEmail();
+    signInWithGoogle = _MockSignInWithGoogle();
+  });
+
+  LoginBloc build() => LoginBloc(
+    signInWithEmail: signInWithEmail,
+    signInWithGoogle: signInWithGoogle,
+  );
+
+  blocTest<LoginBloc, LoginState>(
+    'emits loading then success when the email sign-in succeeds',
+    setUp: () => when(
+      () => signInWithEmail(any()),
+    ).thenAnswer((_) async => const Right(user)),
+    build: build,
+    act: (bloc) => bloc.add(
+      const LoginWithEmailSubmitted(email: 'ana@test.com', password: '123456'),
+    ),
+    expect: () => const [
+      LoginLoading(),
+      LoginSuccess(),
+    ],
+    verify: (_) => verify(() => signInWithEmail(params)).called(1),
+  );
+
+  blocTest<LoginBloc, LoginState>(
+    'emits the error code when the email sign-in fails',
+    setUp: () => when(() => signInWithEmail(any())).thenAnswer(
+      (_) async => const Left(
+        AuthFailure(message: 'bad', code: AuthErrorCodes.invalidCredentials),
+      ),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(
+      const LoginWithEmailSubmitted(email: 'ana@test.com', password: '123456'),
+    ),
+    expect: () => const [
+      LoginLoading(),
+      LoginFailure(errorCode: AuthErrorCodes.invalidCredentials),
+    ],
+  );
+
+  blocTest<LoginBloc, LoginState>(
+    'maps a NetworkFailure to the network error code',
+    setUp: () => when(() => signInWithGoogle(any())).thenAnswer(
+      (_) async => const Left(NetworkFailure(message: 'offline')),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(const LoginWithGoogleRequested()),
+    expect: () => const [
+      LoginLoading(),
+      LoginFailure(errorCode: AuthErrorCodes.network),
+    ],
+  );
+
+  blocTest<LoginBloc, LoginState>(
+    'goes back to initial when the user cancels Google sign-in',
+    setUp: () => when(() => signInWithGoogle(any())).thenAnswer(
+      (_) async => const Left(
+        AuthFailure(message: 'cancelled', code: AuthErrorCodes.cancelled),
+      ),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(const LoginWithGoogleRequested()),
+    expect: () => const [
+      LoginLoading(),
+      LoginInitial(),
+    ],
+  );
+}

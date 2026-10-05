@@ -1,0 +1,37 @@
+// ─────────────────────────────────────────────────────────────
+// RegisterEvent
+// Every event that RegisterBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'register_bloc.dart';
+
+/// Base class for all sign-up events.
+abstract class RegisterEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const RegisterEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// The user submitted the sign-up form.
+class RegisterSubmitted extends RegisterEvent {
+  /// Creates the event with the form values.
+  const RegisterSubmitted({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  /// Name typed by the user.
+  final String name;
+
+  /// Email typed by the user.
+  final String email;
+
+  /// Password typed by the user.
+  final String password;
+
+  @override
+  List<Object?> get props => [name, email, password];
+}

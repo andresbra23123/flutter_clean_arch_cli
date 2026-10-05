@@ -1,0 +1,87 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/features/auth/auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../../helpers/helpers.dart';
+
+class _MockLoginBloc extends MockBloc<LoginEvent, LoginState>
+    implements LoginBloc {}
+
+void main() {
+  late _MockLoginBloc bloc;
+
+  setUpAll(() => registerFallbackValue(const LoginWithGoogleRequested()));
+
+  setUp(() {
+    bloc = _MockLoginBloc();
+    when(() => bloc.state).thenReturn(const LoginInitial());
+  });
+
+  Future<void> pumpLogin(WidgetTester tester) {
+    return tester.pumpApp(
+      BlocProvider<LoginBloc>.value(value: bloc, child: const LoginView()),
+    );
+  }
+
+  testWidgets('shows validation errors and does not submit an empty form', (
+    tester,
+  ) async {
+    await pumpLogin(tester);
+
+    await tester.tap(find.byType(FilledButton));
+    await tester.pump();
+
+    expect(find.text('Enter your email'), findsOneWidget);
+    expect(find.text('Enter your password'), findsOneWidget);
+    verifyNever(() => bloc.add(any()));
+  });
+
+  testWidgets('rejects a password shorter than 8 characters', (tester) async {
+    await pumpLogin(tester);
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ana@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), '1234567');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pump();
+
+    expect(find.text('Use at least 8 characters'), findsOneWidget);
+    verifyNever(() => bloc.add(any()));
+  });
+
+  testWidgets('submits the trimmed email and the password', (tester) async {
+    await pumpLogin(tester);
+
+    await tester.enterText(find.byType(TextFormField).at(0), ' ana@test.com ');
+    await tester.enterText(find.byType(TextFormField).at(1), '12345678');
+    await tester.tap(find.byType(FilledButton));
+    await tester.pump();
+
+    verify(
+      () => bloc.add(
+        const LoginWithEmailSubmitted(
+          email: 'ana@test.com',
+          password: '12345678',
+        ),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('shows a translated message when the sign-in fails', (
+    tester,
+  ) async {
+    whenListen(
+      bloc,
+      Stream.value(
+        const LoginFailure(errorCode: AuthErrorCodes.invalidCredentials),
+      ),
+      initialState: const LoginInitial(),
+    );
+    await pumpLogin(tester);
+    await tester.pump();
+
+    expect(find.text('Incorrect email or password.'), findsOneWidget);
+  });
+}

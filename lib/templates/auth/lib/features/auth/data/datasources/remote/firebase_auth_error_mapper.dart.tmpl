@@ -1,0 +1,31 @@
+// ─────────────────────────────────────────────────────────────
+// authErrorCodeFromFirebase
+// Translates FirebaseAuthException codes into the auth feature's own
+// codes (AuthErrorCodes), so no other layer depends on Firebase.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/auth/domain/domain.dart';
+
+/// Code from [AuthErrorCodes] for the Firebase Auth error [firebaseCode],
+/// or `null` when it has no equivalent (the UI shows a generic message).
+String? authErrorCodeFromFirebase(String firebaseCode) {
+  return switch (firebaseCode) {
+    // With email enumeration protection (the default for new projects)
+    // Firebase returns `invalid-credential`; without it, `user-not-found`
+    // or `wrong-password`.
+    'invalid-credential' ||
+    'user-not-found' ||
+    'wrong-password' => AuthErrorCodes.invalidCredentials,
+    'invalid-email' => AuthErrorCodes.invalidEmail,
+    'user-disabled' => AuthErrorCodes.userDisabled,
+    'email-already-in-use' => AuthErrorCodes.emailAlreadyInUse,
+    'weak-password' => AuthErrorCodes.weakPassword,
+    'too-many-requests' => AuthErrorCodes.tooManyRequests,
+    'network-request-failed' => AuthErrorCodes.network,
+    // The provider is not enabled in the Firebase console.
+    'operation-not-allowed' => AuthErrorCodes.providerDisabled,
+    'account-exists-with-different-credential' =>
+      AuthErrorCodes.accountExistsWithDifferentProvider,
+    _ => null,
+  };
+}

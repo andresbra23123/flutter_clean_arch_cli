@@ -1,0 +1,32 @@
+// ─────────────────────────────────────────────────────────────
+// Get{{Name}}UseCase
+// Business operation that fetches the {{nameWords}} data.
+// Called from the BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// Fetches the current [{{Name}}Entity] through the [{{Name}}RepositoryInter].
+class Get{{Name}}UseCaseImpl implements UseCaseInter<{{Name}}Entity, NoParams> {
+  /// Creates the use case with the [repository] it reads from.
+  Get{{Name}}UseCaseImpl({required this.repository});
+
+  /// Source of the {{nameWords}} data.
+  final {{Name}}RepositoryInter repository;
+
+  /// Returns the [{{Name}}Entity], or a [Failure] if it could not be obtained.
+  @override
+  Future<Either<Failure, {{Name}}Entity>> call(NoParams params) async {
+    final result = await repository.get{{Name}}();
+    return result;
+  }
+}
+
+// TODO({{todoTag}}): Create additional use cases for this feature.
+// Pattern: one use case per operation, one file per use case.
+// Example:
+// class Create{{Name}}UseCaseImpl implements UseCaseInter<Unit, {{Name}}Entity> { ... }
+// class Delete{{Name}}UseCaseImpl implements UseCaseInter<Unit, String> { ... }

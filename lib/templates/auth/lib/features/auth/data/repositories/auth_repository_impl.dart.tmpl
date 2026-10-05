@@ -1,0 +1,101 @@
+// ─────────────────────────────────────────────────────────────
+// AuthRepositoryImpl
+// Implements the domain repository contract on top of the remote
+// data source. Checks the connection first and converts exceptions
+// into Failures.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/auth/data/data.dart';
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:dartz/dartz.dart';
+
+/// [AuthRepositoryInter] implementation.
+///
+/// There is no local data source: Firebase Auth already keeps the session
+/// on the device.
+class AuthRepositoryImpl implements AuthRepositoryInter {
+  /// Creates the repository with its data source and the network checker.
+  AuthRepositoryImpl({
+    required this.remoteDataSource,
+    required this.networkInfo,
+  });
+
+  /// Talks to Firebase Auth and Google.
+  final AuthRemoteDataSourceInter remoteDataSource;
+
+  /// Tells whether the device is online.
+  final NetworkInfoInter networkInfo;
+
+  @override
+  Stream<UserEntity?> userChanges() => remoteDataSource.userChanges();
+
+  @override
+  UserEntity? get currentUser => remoteDataSource.currentUser;
+
+  @override
+  FutureEither<UserEntity> signInWithEmail({
+    required String email,
+    required String password,
+  }) {
+    return _run(
+      () => remoteDataSource.signInWithEmail(email: email, password: password),
+    );
+  }
+
+  @override
+  FutureEither<UserEntity> signUpWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  }) {
+    return _run(
+      () => remoteDataSource.signUpWithEmail(
+        name: name,
+        email: email,
+        password: password,
+      ),
+    );
+  }
+
+  @override
+  FutureEither<UserEntity> signInWithGoogle() {
+    return _run(remoteDataSource.signInWithGoogle);
+  }
+
+  @override
+  FutureEither<Unit> sendPasswordResetEmail({required String email}) {
+    return _run(() async {
+      await remoteDataSource.sendPasswordResetEmail(email: email);
+      return unit;
+    });
+  }
+
+  /// Works offline too: Firebase clears the local session without a
+  /// network call.
+  @override
+  FutureEither<Unit> signOut() {
+    return _run(() async {
+      await remoteDataSource.signOut();
+      return unit;
+    }, requiresNetwork: false);
+  }
+
+  /// Runs [action], returning a [NetworkFailure] when offline and an
+  /// [AuthFailure] when it throws an [AuthException].
+  FutureEither<T> _run<T>(
+    Future<T> Function() action, {
+    bool requiresNetwork = true,
+  }) async {
+    if (requiresNetwork && !await networkInfo.isConnected) {
+      return const Left(NetworkFailure(message: 'No internet connection.'));
+    }
+    try {
+      return Right(await action());
+    } on AuthException catch (e) {
+      return Left(AuthFailure(message: e.message, code: e.code));
+    }
+  }
+}

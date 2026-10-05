@@ -1,0 +1,29 @@
+// ─────────────────────────────────────────────────────────────
+// UserModel
+// UserEntity built from a Firebase `User`.
+// The data layer creates it; the domain only sees UserEntity.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/auth/domain/domain.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+/// [UserEntity] created from Firebase Auth data.
+class UserModel extends UserEntity {
+  /// Creates the user model.
+  const UserModel({
+    required super.id,
+    required super.email,
+    super.displayName,
+    super.photoUrl,
+  });
+
+  /// Creates a [UserModel] from the Firebase [user].
+  factory UserModel.fromFirebaseUser(User user) {
+    return UserModel(
+      id: user.uid,
+      email: user.email ?? '',
+      displayName: user.displayName,
+      photoUrl: user.photoURL,
+    );
+  }
+}

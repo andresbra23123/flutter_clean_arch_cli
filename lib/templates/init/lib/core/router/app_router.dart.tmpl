@@ -1,0 +1,34 @@
+// ─────────────────────────────────────────────────────────────
+// AppRouter
+// Navigation configuration of the app (go_router).
+// Paths and names live in AppRoutes; transitions in router_animation.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/animations/animations.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/features/home/home.dart';
+import 'package:go_router/go_router.dart';
+// flutter_clean_arch:feature-imports
+
+/// Holds the [GoRouter] of the app.
+class AppRouter {
+  AppRouter._();
+
+  /// Router with every route of the app. Passed to `MaterialApp.router`.
+  static final GoRouter instance = GoRouter(
+    initialLocation: AppRoutes.home,
+    // Shown for any path that does not match a route.
+    errorBuilder: (context, state) => NotFoundPage(path: state.uri.path),
+    routes: [
+      GoRoute(
+        path: AppRoutes.home,
+        name: AppRoutes.homeName,
+        pageBuilder: (context, state) => routerAnimation(
+          page: const HomePage(),
+          animationType: RouterAnimationType.fade,
+        ),
+      ),
+      // flutter_clean_arch:routes
+    ],
+  );
+}

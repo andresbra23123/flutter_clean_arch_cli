@@ -1,0 +1,85 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/features/auth/auth.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRemoteDataSource extends Mock implements AuthRemoteDataSourceInter {}
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+void main() {
+  late _MockRemoteDataSource remote;
+  late _MockNetworkInfo networkInfo;
+  late AuthRepositoryImpl repository;
+
+  const user = UserModel(id: 'uid', email: 'ana@test.com');
+
+  setUp(() {
+    remote = _MockRemoteDataSource();
+    networkInfo = _MockNetworkInfo();
+    repository = AuthRepositoryImpl(
+      remoteDataSource: remote,
+      networkInfo: networkInfo,
+    );
+    when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+  });
+
+  group('signInWithEmail', () {
+    Future<Either<Failure, UserEntity>> signIn() =>
+        repository.signInWithEmail(email: 'ana@test.com', password: '123456');
+
+    test('returns the user when the data source succeeds', () async {
+      when(
+        () => remote.signInWithEmail(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => user);
+
+      expect(await signIn(), const Right<Failure, UserEntity>(user));
+    });
+
+    test('returns an AuthFailure with the code of the exception', () async {
+      when(
+        () => remote.signInWithEmail(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenThrow(
+        const AuthException(
+          message: 'bad',
+          code: AuthErrorCodes.invalidCredentials,
+        ),
+      );
+
+      expect(
+        await signIn(),
+        const Left<Failure, UserEntity>(
+          AuthFailure(message: 'bad', code: AuthErrorCodes.invalidCredentials),
+        ),
+      );
+    });
+
+    test(
+      'returns a NetworkFailure without calling Firebase when offline',
+      () async {
+        when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+
+        final result = await signIn();
+
+        expect(result.fold((f) => f, (_) => null), isA<NetworkFailure>());
+        verifyZeroInteractions(remote);
+      },
+    );
+  });
+
+  test('signOut works offline', () async {
+    when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+    when(() => remote.signOut()).thenAnswer((_) async {});
+
+    expect(await repository.signOut(), const Right<Failure, Unit>(unit));
+    verify(() => remote.signOut()).called(1);
+  });
+}

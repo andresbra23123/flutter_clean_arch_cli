@@ -1,0 +1,30 @@
+// ─────────────────────────────────────────────────────────────
+// WatchUserUseCase / GetCurrentUserUseCase
+// Expose the session state. They do not fail, so they do not use Either.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/auth/domain/domain.dart';
+
+/// Streams the signed-in user (`null` when there is no session).
+class WatchUserUseCaseImpl {
+  /// Creates the use case with the [repository] it reads from.
+  WatchUserUseCaseImpl({required this.repository});
+
+  /// Source of the session state.
+  final AuthRepositoryInter repository;
+
+  /// Emits on every sign-in, sign-out and profile change.
+  Stream<UserEntity?> call() => repository.userChanges();
+}
+
+/// Returns the signed-in user right now (`null` when there is no session).
+class GetCurrentUserUseCaseImpl {
+  /// Creates the use case with the [repository] it reads from.
+  GetCurrentUserUseCaseImpl({required this.repository});
+
+  /// Source of the session state.
+  final AuthRepositoryInter repository;
+
+  /// The current user, or `null`.
+  UserEntity? call() => repository.currentUser;
+}

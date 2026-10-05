@@ -1,0 +1,42 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/features/{{feature}}/{{feature}}.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../../../helpers/helpers.dart';
+
+class _MockBloc extends MockBloc<{{Name}}Event, {{Name}}State>
+    implements {{Name}}Bloc {}
+
+void main() {
+  late _MockBloc bloc;
+
+  setUp(() => bloc = _MockBloc());
+
+  Future<void> pumpView(WidgetTester tester) => tester.pumpApp(
+    BlocProvider<{{Name}}Bloc>.value(
+      value: bloc,
+      child: const {{Name}}View(),
+    ),
+  );
+
+  testWidgets('shows a progress indicator while loading', (tester) async {
+    when(() => bloc.state).thenReturn(const {{Name}}Loading());
+
+    await pumpView(tester);
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('shows the error message', (tester) async {
+    when(() => bloc.state).thenReturn(const {{Name}}Error(message: 'error'));
+
+    await pumpView(tester);
+
+    expect(find.text('error'), findsOneWidget);
+  });
+
+  // TODO({{todoTag}}): Test the {{Name}}Loaded UI once it shows real data.
+}

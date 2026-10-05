@@ -1,0 +1,46 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}ErrorView
+// Error state of the {{nameWords}} page: message plus a retry button.
+// TODO({{todoTag}}): Customize the error UI.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+
+/// Shows [message] and a button that calls [onRetry].
+class {{Name}}ErrorView extends StatelessWidget {
+  /// Creates the error view.
+  const {{Name}}ErrorView({
+    required this.message,
+    required this.onRetry,
+    super.key,
+  });
+
+  /// Error message to display.
+  final String message;
+
+  /// Called when the user taps Retry.
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}

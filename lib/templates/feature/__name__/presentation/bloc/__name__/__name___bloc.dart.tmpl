@@ -1,0 +1,73 @@
+// ─────────────────────────────────────────────────────────────
+// {{Name}}Bloc
+// Connects the {{nameWords}} use cases with the UI.
+// Receives events → calls use cases → emits states.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/{{name}}/domain/domain.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+part '{{name}}_event.dart';
+part '{{name}}_state.dart';
+
+/// Manages the state of the {{nameWords}} screen.
+///
+/// Created by get_it as a factory (see `{{name}}_injection.dart`), so every
+/// screen gets its own instance.
+class {{Name}}Bloc extends Bloc<{{Name}}Event, {{Name}}State> {
+
+  /// Creates the BLoC in the [{{Name}}Initial] state.
+  ///
+  /// `get{{Name}}` is the use case that fetches the {{nameWords}} data.
+  // TODO({{todoTag}}): Inject every use case this BLoC depends on.
+  {{Name}}Bloc({
+    required this._get{{Name}},
+    // required this._create{{Name}},
+    // required this._delete{{Name}},
+  }) : super(const {{Name}}Initial()) {
+    // Register one handler per event.
+    on<Get{{Name}}Event>(_onGet{{Name}});
+
+    // TODO({{todoTag}}): Register handlers for additional events.
+    // on<Update{{Name}}Event>(_onUpdate{{Name}});
+    // on<Refresh{{Name}}Event>(_onRefresh{{Name}});
+  }
+
+  // Private: the UI must talk to the BLoC through events, never by
+  // calling its use cases directly.
+  final Get{{Name}}UseCaseImpl _get{{Name}};
+
+  /// Handles [Get{{Name}}Event]: emits [{{Name}}Loading], then [{{Name}}Loaded] with
+  /// the data or [{{Name}}Error] with the failure message.
+  Future<void> _onGet{{Name}}(
+    Get{{Name}}Event event,
+    Emitter<{{Name}}State> emit,
+  ) async {
+    emit(const {{Name}}Loading());
+
+    final result = await _get{{Name}}(NoParams());
+
+    result.fold(
+      // Failure: show its message.
+      (failure) => emit({{Name}}Error(message: failure.message)),
+      // Success: show the entity.
+      (entity) => emit({{Name}}Loaded(entity: entity)),
+    );
+  }
+
+  // TODO({{todoTag}}): Implement handlers for additional events.
+  // Example:
+  // Future<void> _onUpdate{{Name}}(
+  //   Update{{Name}}Event event,
+  //   Emitter<{{Name}}State> emit,
+  // ) async {
+  //   emit(const {{Name}}Loading());
+  //   final result = await update{{Name}}(event.entity);
+  //   result.fold(
+  //     (failure) => emit({{Name}}Error(message: failure.message)),
+  //     (_) => add(const Get{{Name}}Event()),
+  //   );
+  // }
+}
