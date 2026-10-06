@@ -1,0 +1,65 @@
+import 'dart:async';
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('toEither', () {
+    Failure toFailure(Object error) => ServerFailure(message: '$error');
+
+    test('wraps values as Right and errors as Left', () async {
+      final source = Stream<int>.fromIterable([1, 2]).asyncExpand(
+        (value) => value == 2
+            ? Stream<int>.error('boom')
+            : Stream<int>.value(value),
+      );
+
+      expect(
+        await source.toEither(toFailure).toList(),
+        const [
+          Right<Failure, int>(1),
+          Left<Failure, int>(ServerFailure(message: 'boom')),
+        ],
+      );
+    });
+
+    test('keeps emitting after an error', () async {
+      final controller = StreamController<int>();
+      final events = <EitherOr<int>>[];
+      final subscription = controller.stream.toEither(toFailure).listen(
+        events.add,
+      );
+
+      controller
+        ..add(1)
+        ..addError('boom')
+        ..add(2);
+      await controller.close();
+      await subscription.cancel();
+
+      expect(events, const [
+        Right<Failure, int>(1),
+        Left<Failure, int>(ServerFailure(message: 'boom')),
+        Right<Failure, int>(2),
+      ]);
+    });
+
+    test('works on a stream of a subtype, like models seen as entities', () {
+      final Stream<num> numbers = Stream<int>.fromIterable([1, 2]);
+
+      expect(
+        numbers.toEither(toFailure).toList(),
+        completion(const [Right<Failure, num>(1), Right<Failure, num>(2)]),
+      );
+    });
+
+    test('a broadcast stream stays broadcast', () {
+      final controller = StreamController<int>.broadcast();
+      addTearDown(controller.close);
+
+      expect(controller.stream.toEither(toFailure).isBroadcast, isTrue);
+    });
+  });
+}

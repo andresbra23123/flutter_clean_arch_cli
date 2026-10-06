@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:{{package}}/core/errors/errors.dart';
 import 'package:{{package}}/core/network/network.dart';
 import 'package:{{package}}/features/auth/auth.dart';
@@ -73,6 +75,47 @@ void main() {
         verifyZeroInteractions(remote);
       },
     );
+  });
+
+  group('userChanges', () {
+    test('emits every user as Right', () async {
+      when(
+        () => remote.userChanges(),
+      ).thenAnswer((_) => Stream.fromIterable([user, null]));
+
+      expect(await repository.userChanges().toList(), const [
+        Right<Failure, UserEntity?>(user),
+        Right<Failure, UserEntity?>(null),
+      ]);
+    });
+
+    test('turns an AuthException of the stream into a Left and goes on', () async {
+      final users = StreamController<UserModel?>();
+      when(() => remote.userChanges()).thenAnswer((_) => users.stream);
+      final events = <Either<Failure, UserEntity?>>[];
+      final subscription = repository.userChanges().listen(events.add);
+
+      users
+        ..addError(
+          const AuthException(
+            message: 'expired',
+            code: AuthErrorCodes.invalidCredentials,
+          ),
+        )
+        ..add(user);
+      await users.close();
+      await subscription.cancel();
+
+      expect(events, const [
+        Left<Failure, UserEntity?>(
+          AuthFailure(
+            message: 'expired',
+            code: AuthErrorCodes.invalidCredentials,
+          ),
+        ),
+        Right<Failure, UserEntity?>(user),
+      ]);
+    });
   });
 
   test('signOut works offline', () async {

@@ -27,9 +27,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSourceInter {
 
   @override
   Stream<UserModel?> userChanges() {
-    return firebaseAuth.userChanges().map(
-      (user) => user == null ? null : UserModel.fromFirebaseUser(user),
-    );
+    return firebaseAuth
+        .userChanges()
+        .map((user) => user == null ? null : UserModel.fromFirebaseUser(user))
+        // Same conversion as _guard, for errors emitted by the stream.
+        .handleError(
+          (Object error) => throw _authException(error as FirebaseAuthException),
+          test: (error) => error is FirebaseAuthException,
+        );
   }
 
   @override
@@ -135,10 +140,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSourceInter {
     try {
       return await action();
     } on FirebaseAuthException catch (e) {
-      throw AuthException(
-        message: '${e.code}: ${e.message ?? 'Authentication failed.'}',
-        code: authErrorCodeFromFirebase(e.code),
-      );
+      throw _authException(e);
     }
   }
+
+  /// [AuthException] with the app's own code for a Firebase error.
+  AuthException _authException(FirebaseAuthException e) => AuthException(
+    message: '${e.code}: ${e.message ?? 'Authentication failed.'}',
+    code: authErrorCodeFromFirebase(e.code),
+  );
 }

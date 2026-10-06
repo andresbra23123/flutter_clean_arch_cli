@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
 import 'package:{{package}}/core/usecases/usecases.dart';
 import 'package:{{package}}/features/auth/auth.dart';
 import 'package:dartz/dartz.dart';
@@ -17,7 +19,7 @@ void main() {
   late _MockWatchUser watchUser;
   late _MockGetCurrentUser getCurrentUser;
   late _MockSignOut signOut;
-  late StreamController<UserEntity?> users;
+  late StreamController<EitherOr<UserEntity?>> users;
 
   const user = UserEntity(id: 'uid', email: 'ana@test.com');
 
@@ -28,8 +30,8 @@ void main() {
     getCurrentUser = _MockGetCurrentUser();
     signOut = _MockSignOut();
     // Broadcast: close() completes even when nothing is listening.
-    users = StreamController<UserEntity?>.broadcast();
-    when(() => watchUser()).thenAnswer((_) => users.stream);
+    users = StreamController<EitherOr<UserEntity?>>.broadcast();
+    when(() => watchUser(any())).thenAnswer((_) => users.stream);
     when(() => getCurrentUser()).thenReturn(null);
   });
 
@@ -57,13 +59,27 @@ void main() {
       bloc.add(const AuthSubscriptionRequested());
       await Future<void>.delayed(Duration.zero);
       users
-        ..add(user)
-        ..add(null);
+        ..add(const Right(user))
+        ..add(const Right(null));
     },
     expect: () => const [
       AuthAuthenticated(user: user),
       AuthUnauthenticated(),
     ],
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'an error of the stream keeps the state and is reported',
+    build: build,
+    act: (bloc) async {
+      bloc.add(const AuthSubscriptionRequested());
+      await Future<void>.delayed(Duration.zero);
+      users
+        ..add(const Right(user))
+        ..add(const Left(AuthFailure(message: 'expired')));
+    },
+    expect: () => const [AuthAuthenticated(user: user)],
+    errors: () => const [AuthFailure(message: 'expired')],
   );
 
   blocTest<AuthBloc, AuthState>(

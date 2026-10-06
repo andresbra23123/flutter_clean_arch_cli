@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:{{package}}/core/errors/errors.dart';
 import 'package:dartz/dartz.dart';
 
@@ -7,3 +9,32 @@ typedef EitherOr<T> = Either<Failure, T>;
 /// Asynchronous [EitherOr], the usual return type of repositories and
 /// use cases.
 typedef FutureEither<T> = Future<EitherOr<T>>;
+
+/// Stream of [EitherOr], the return type of repositories and use cases
+/// that emit over time (see `UseCaseInterStream`).
+typedef StreamEither<T> = Stream<EitherOr<T>>;
+
+/// Converts a data-layer stream into a [StreamEither].
+extension StreamEitherX<T> on Stream<T> {
+  /// Emits every value as [Right] and every error as [Left] with the
+  /// [Failure] returned by [onError], so the stream never ends with an
+  /// error.
+  ///
+  /// The values are wrapped as `Right<Failure, T>` with the static [T], so
+  /// a stream of models seen as a stream of entities yields entities.
+  /// Pausing, resuming and cancelling reach the original stream, and a
+  /// broadcast stream stays broadcast.
+  StreamEither<T> toEither(Failure Function(Object error) onError) {
+    // The runtime stream may be of a subtype (a Stream<UserModel> typed as
+    // Stream<UserEntity>), and transform needs its element type to match
+    // the transformer's: cast first. `this.` is needed because dartz
+    // exports a top-level `cast` function.
+    return this.cast<T>().transform(
+      StreamTransformer<T, EitherOr<T>>.fromHandlers(
+        handleData: (data, sink) => sink.add(Right<Failure, T>(data)),
+        handleError: (error, stackTrace, sink) =>
+            sink.add(Left<Failure, T>(onError(error))),
+      ),
+    );
+  }
+}

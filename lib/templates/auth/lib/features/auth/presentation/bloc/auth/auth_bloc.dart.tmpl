@@ -36,11 +36,20 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   /// Emits a new state every time the user signs in, signs out or updates
   /// its profile, until the BLoC is closed.
+  ///
+  /// An error of the stream is reported with [addError] and keeps the
+  /// current state: it does not mean the session ended.
   Future<void> _onSubscriptionRequested(
     AuthSubscriptionRequested event,
     Emitter<AuthState> emit,
   ) {
-    return emit.forEach(_watchUser(), onData: AuthState.fromUser);
+    return emit.forEach(
+      _watchUser(NoParams()),
+      onData: (result) => result.fold((failure) {
+        addError(failure);
+        return state;
+      }, AuthState.fromUser),
+    );
   }
 
   /// Signs out. The new state arrives through the user stream.

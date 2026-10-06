@@ -3,6 +3,13 @@
 Todos los cambios de la CLI `flutter_clean_arch`. Instala una versión concreta con
 `dart pub global activate --source git https://github.com/andresbra23123/flutter_clean_arch_cli --git-ref v<versión>`.
 
+## Sin publicar
+
+- `core/type_defs`: `StreamEither<T>` y la extensión `toEither()`, que convierte un `Stream` en uno de `Either` (valores → `Right`, errores → `Left`, sin cerrar el stream). Funciona con streams de modelos vistos como de entidades.
+- `core/usecases`: `UseCaseInterStream<T, Params>` para casos de uso que emiten en el tiempo.
+- Los proyectos generados incluyen `test/core/type_defs/type_defs_test.dart`.
+- Auth: un caso de uso por archivo (`watch_user.dart` y `get_current_user.dart` reemplazan a `session_use_cases.dart`). `WatchUser` implementa `UseCaseInterStream` y el repositorio devuelve `StreamEither<UserEntity?>`. Los errores del stream de Firebase se convierten en `AuthFailure`, y el `AuthBloc` los reporta sin cerrar la sesión.
+
 ## 0.1.0
 
 Primera versión.

@@ -30,7 +30,11 @@ class AuthRepositoryImpl implements AuthRepositoryInter {
   final NetworkInfoInter networkInfo;
 
   @override
-  Stream<UserEntity?> userChanges() => remoteDataSource.userChanges();
+  StreamEither<UserEntity?> userChanges() {
+    // Typed as entities so the stream emits Right<Failure, UserEntity?>.
+    final Stream<UserEntity?> users = remoteDataSource.userChanges();
+    return users.toEither(_failureOf);
+  }
 
   @override
   UserEntity? get currentUser => remoteDataSource.currentUser;
@@ -95,7 +99,13 @@ class AuthRepositoryImpl implements AuthRepositoryInter {
     try {
       return Right(await action());
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message, code: e.code));
+      return Left(_failureOf(e));
     }
   }
+
+  /// [AuthFailure] for an error of the data source, keeping the code of an
+  /// [AuthException] so the presentation layer can translate it.
+  Failure _failureOf(Object error) => error is AuthException
+      ? AuthFailure(message: error.message, code: error.code)
+      : AuthFailure(message: '$error');
 }

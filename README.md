@@ -170,8 +170,8 @@ lib/
 │  ├─ network/                  NetworkInfoInter / NetworkInfoImpl
 │  ├─ router/                   AppRouter, AppRoutes, NotFoundPage, GoRouterRefreshStream
 │  ├─ theme/                    AppColors, AppTextStyles, AppTheme
-│  ├─ type_defs/                EitherOr<T>, FutureEither<T>
-│  ├─ usecases/                 UseCaseInter<Return, Params> y NoParams
+│  ├─ type_defs/                EitherOr<T>, FutureEither<T>, StreamEither<T> y toEither()
+│  ├─ usecases/                 UseCaseInter, UseCaseInterStream (streams) y NoParams
 │  └─ utils/                    AppUtils
 └─ features/
    └─ home/
@@ -241,7 +241,17 @@ lib/features/songs/
 - **Una carpeta por página.** `pages/<página>/` contiene la pantalla y una carpeta `components/` con los widgets que solo usa esa página. Los widgets que comparten varias páginas de la feature van en `presentation/widgets/`.
 - **Una carpeta por BLoC o Cubit.** `bloc/<nombre>/` contiene el bloc (o cubit) y su state, más el event en el caso de un BLoC. Event y state son `part` del archivo principal, así que el barril solo exporta ese archivo.
 - **`Inter` / `Impl`.** Los contratos terminan en `Inter` y sus implementaciones en `Impl`: repositorios, datasources, `NetworkInfo` y `UseCaseInter`.
-- **Errores como valores.** La capa data lanza `Exception`s (`ServerException`, `CacheException`, `AuthException`…). El repositorio las convierte en `Failure`s y devuelve `Either<Failure, T>` (dartz). Los casos de uso implementan `UseCaseInter<T, Params>`. `AuthException` y `AuthFailure` aceptan un `code` opcional para mostrar mensajes traducidos.
+- **Errores como valores.** La capa data lanza `Exception`s (`ServerException`, `CacheException`, `AuthException`…). El repositorio las convierte en `Failure`s y devuelve `Either<Failure, T>` (dartz), con los alias `FutureEither<T>` y `StreamEither<T>` de `core/type_defs`. Los casos de uso implementan `UseCaseInter<T, Params>`, o `UseCaseInterStream<T, Params>` cuando emiten en el tiempo. `AuthException` y `AuthFailure` aceptan un `code` opcional para mostrar mensajes traducidos.
+- **Streams.** El datasource expone un `Stream` normal, y el repositorio lo convierte con `toEither`. Cada valor sale como `Right` y cada error como `Left` con su `Failure`, sin cerrar el stream:
+  ```dart
+  @override
+  StreamEither<UserEntity?> userChanges() {
+    final Stream<UserEntity?> users = remoteDataSource.userChanges();
+    return users.toEither(_failureOf);
+  }
+  ```
+  `toEither` funciona aunque el stream real sea de modelos (`Stream<UserModel>`) visto como de entidades, y mantiene la pausa, la cancelación y los streams *broadcast*.
+- **Un caso de uso por archivo**, en `domain/usecases/`. Su clase de parámetros (`SignInParams`, …) puede ir en el mismo archivo.
 - **Inyección de dependencias** con get_it. Cada feature registra lo suyo en `<feature>_injection.dart`:
   - BLoCs y Cubits como `registerFactory`, para que cada pantalla tenga su instancia.
   - Casos de uso, repositorios y datasources como `registerLazySingleton`.

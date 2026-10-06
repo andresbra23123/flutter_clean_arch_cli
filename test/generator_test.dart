@@ -71,6 +71,7 @@ void main() {
         'lib/features/home/presentation/pages/home/home.dart',
         'lib/features/home/presentation/pages/home/home_page.dart',
         'lib/features/home/presentation/pages/home/components/components.dart',
+        'test/core/type_defs/type_defs_test.dart',
         'l10n.yaml',
         'analysis_options.yaml',
         '.vscode/launch.json',
@@ -78,7 +79,22 @@ void main() {
     );
     expect(paths.any((p) => p.contains('features/auth')), isFalse);
     expectClean(files);
-    expectBarrels(paths);
+    // The one-barrel-per-folder rule applies to lib/, not to test/.
+    expectBarrels(paths.where((path) => path.startsWith('lib/')).toSet());
+
+    String content(String path) =>
+        files.firstWhere((f) => f.relativePath == path).content;
+    expect(
+      content('lib/core/type_defs/type_defs.dart'),
+      allOf(
+        contains('typedef StreamEither<T> = Stream<EitherOr<T>>;'),
+        contains('StreamEither<T> toEither('),
+      ),
+    );
+    expect(
+      content('lib/core/usecases/usecase_inter.dart'),
+      contains('abstract interface class UseCaseInterStream<'),
+    );
   });
 
   test('feature renders 34 files under lib/features/<name>', () {
@@ -246,10 +262,29 @@ void main() {
         'lib/features/auth/presentation/pages/login/login_page.dart',
         'lib/core/firebase/firebase_flavor_options.dart',
         'test/features/auth/presentation/bloc/login/login_bloc_test.dart',
+        'lib/features/auth/domain/usecases/watch_user.dart',
+        'lib/features/auth/domain/usecases/get_current_user.dart',
       ]),
     );
     expectClean(files);
     expectBarrels(paths.where((path) => path.startsWith('lib/')).toSet());
+
+    // One use case per file.
+    for (final file in files.where(
+      (f) => f.relativePath.startsWith('lib/features/auth/domain/usecases/'),
+    )) {
+      expect(
+        RegExp(r'class \w+UseCaseImpl').allMatches(file.content).length,
+        lessThanOrEqualTo(1),
+        reason: file.relativePath,
+      );
+    }
+    expect(
+      files
+          .firstWhere((f) => f.relativePath.endsWith('watch_user.dart'))
+          .content,
+      contains('implements UseCaseInterStream<UserEntity?, NoParams>'),
+    );
 
     final arbs = generator.render('auth_l10n', vars);
     expect(arbs.map((f) => f.relativePath), ['app_en.arb', 'app_es.arb']);

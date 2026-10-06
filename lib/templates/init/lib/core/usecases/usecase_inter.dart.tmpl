@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────────────────────
-// UseCaseInter (contract)
-// Every use case in the domain layer implements this contract.
-// Results are returned as Either<Failure, T> (dartz) instead of
-// throwing, so errors are part of the return type.
+// UseCaseInter / UseCaseInterStream (contracts)
+// Every use case in the domain layer implements one of them:
+// UseCaseInter for a single result (Future), UseCaseInterStream for
+// results over time (Stream). Results are returned as Either<Failure, T>
+// (dartz) instead of throwing, so errors are part of the return type.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
@@ -21,6 +23,20 @@ abstract interface class UseCaseInter<ReturnType, ParamsType> {
   ///
   /// Returns a [Failure] on the left side or the result on the right side.
   Future<Either<Failure, ReturnType>> call(ParamsType params);
+}
+
+/// Contract for a use case that emits results over time, e.g. watching
+/// the signed-in user or a list that updates live.
+///
+/// Each event is a [Failure] on the left side or a value on the right
+/// side; an error does not end the stream. Data sources usually expose a
+/// plain `Stream` and the repository converts it with `toEither`.
+///
+/// Invoke it like a function and listen to the result:
+/// `watchSongs(NoParams()).listen(...)`.
+abstract interface class UseCaseInterStream<ReturnType, ParamsType> {
+  /// Starts the use case with [params].
+  StreamEither<ReturnType> call(ParamsType params);
 }
 
 /// Parameter type for use cases that do not need any input.

@@ -1,0 +1,20 @@
+// ─────────────────────────────────────────────────────────────
+// GetCurrentUserUseCase
+// Reads the session Firebase already restored on the device.
+// It is synchronous and cannot fail, so it returns the user directly
+// instead of an Either: AuthBloc needs it for its initial state.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/features/auth/domain/domain.dart';
+
+/// Returns the signed-in user right now (`null` when there is no session).
+class GetCurrentUserUseCaseImpl {
+  /// Creates the use case with the [repository] it reads from.
+  GetCurrentUserUseCaseImpl({required this.repository});
+
+  /// Source of the session state.
+  final AuthRepositoryInter repository;
+
+  /// The current user, or `null`.
+  UserEntity? call() => repository.currentUser;
+}

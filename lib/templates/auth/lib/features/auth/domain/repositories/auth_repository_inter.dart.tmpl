@@ -13,8 +13,9 @@ import 'package:dartz/dartz.dart';
 /// Operations return a `Failure` on the left side instead of throwing.
 abstract interface class AuthRepositoryInter {
   /// Emits the current user every time it signs in, signs out or updates
-  /// its profile, and `null` when there is no session.
-  Stream<UserEntity?> userChanges();
+  /// its profile, and `null` when there is no session. Errors arrive as a
+  /// `Failure` on the left side; the stream keeps going.
+  StreamEither<UserEntity?> userChanges();
 
   /// The signed-in user, or `null` if there is no session.
   UserEntity? get currentUser;
