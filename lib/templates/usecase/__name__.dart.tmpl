@@ -5,10 +5,10 @@
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
 import 'package:{{package}}/core/usecases/usecases.dart';
 import 'package:{{package}}/features/{{feature}}/domain/domain.dart';
-import 'package:dartz/dartz.dart';
-
+{{dartzImport}}
 /// Runs "{{nameWords}}" through the [{{Feature}}RepositoryInter].
 class {{Name}}UseCaseImpl implements UseCaseInter<{{returns}}, {{params}}> {
   /// Creates the use case with the [repository] it uses.
@@ -19,7 +19,7 @@ class {{Name}}UseCaseImpl implements UseCaseInter<{{returns}}, {{params}}> {
 
   /// Returns the result, or a [Failure] if the operation failed.
   @override
-  Future<Either<Failure, {{returns}}>> call({{params}} params) {
+  FutureEither<{{returns}}> call({{params}} params) {
     return repository.{{nameCamel}}({{callArgs}});
   }
 }

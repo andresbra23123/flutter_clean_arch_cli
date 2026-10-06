@@ -8,7 +8,6 @@
 
 import 'package:{{package}}/core/errors/errors.dart';
 import 'package:{{package}}/core/type_defs/type_defs.dart';
-import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
 /// Contract for a use case: a single business operation.
@@ -22,7 +21,7 @@ abstract interface class UseCaseInter<ReturnType, ParamsType> {
   /// Runs the use case with [params].
   ///
   /// Returns a [Failure] on the left side or the result on the right side.
-  Future<Either<Failure, ReturnType>> call(ParamsType params);
+  FutureEither<ReturnType> call(ParamsType params);
 }
 
 /// Contract for a use case that emits results over time, e.g. watching

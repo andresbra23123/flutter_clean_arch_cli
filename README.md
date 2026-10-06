@@ -526,17 +526,17 @@ class SearchSongsUseCaseImpl implements UseCaseInter<List<SongsEntity>, String> 
   final SongsRepositoryInter repository;
 
   @override
-  Future<Either<Failure, List<SongsEntity>>> call(String params) {
+  FutureEither<List<SongsEntity>> call(String params) {
     return repository.searchSongs(params);
   }
 }
 
 // domain/repositories/songs_repository_inter.dart
-Future<Either<Failure, List<SongsEntity>>> searchSongs(String params);
+FutureEither<List<SongsEntity>> searchSongs(String params);
 
 // data/repositories/songs_repository_impl.dart
 @override
-Future<Either<Failure, List<SongsEntity>>> searchSongs(String params) async {
+FutureEither<List<SongsEntity>> searchSongs(String params) async {
   // TODO(mi-app): Implement search songs.
   throw UnimplementedError();
 }

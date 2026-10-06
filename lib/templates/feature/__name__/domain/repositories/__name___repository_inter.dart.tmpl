@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
 import 'package:{{package}}/features/{{name}}/domain/domain.dart';
 import 'package:dartz/dartz.dart';
 
@@ -15,12 +16,12 @@ import 'package:dartz/dartz.dart';
 /// the left side of the [Either].
 abstract interface class {{Name}}RepositoryInter {
   /// Returns the [{{Name}}Entity] on success, or a [Failure] on error.
-  Future<Either<Failure, {{Name}}Entity>> get{{Name}}();
+  FutureEither<{{Name}}Entity> get{{Name}}();
 
   // TODO({{todoTag}}): Add more repository method signatures as needed.
   // Example:
-  // Future<Either<Failure, Unit>> create{{Name}}({{Name}}Entity entity);
-  // Future<Either<Failure, List<{{Name}}Entity>>> getAll{{Name}}s();
-  // Future<Either<Failure, Unit>> delete{{Name}}(String id);
+  // FutureEither<Unit> create{{Name}}({{Name}}Entity entity);
+  // FutureEither<List<{{Name}}Entity>> getAll{{Name}}s();
+  // FutureEither<Unit> delete{{Name}}(String id);
   // flutter_clean_arch:repository-methods
 }

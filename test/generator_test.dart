@@ -93,7 +93,12 @@ void main() {
     );
     expect(
       content('lib/core/usecases/usecase_inter.dart'),
-      contains('abstract interface class UseCaseInterStream<'),
+      allOf(
+        contains('FutureEither<ReturnType> call(ParamsType params);'),
+        contains('abstract interface class UseCaseInterStream<'),
+        contains('StreamEither<ReturnType> call(ParamsType params);'),
+        isNot(contains('Future<Either<')),
+      ),
     );
   });
 
@@ -161,6 +166,7 @@ void main() {
       'returns': 'Unit',
       'params': 'NoParams',
       'callArgs': '',
+      'dartzImport': '',
     };
 
     for (final (dir, count) in [
@@ -219,6 +225,7 @@ void main() {
         allOf(
           contains('class SongDetailUseCaseImpl'),
           contains('implements UseCaseInter<Unit, NoParams>'),
+          contains('FutureEither<Unit> call(NoParams params)'),
           contains('repository.songDetail()'),
         ),
       );

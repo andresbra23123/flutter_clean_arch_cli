@@ -91,3 +91,25 @@ InjectResult addExport(File file, String uri) {
   writeText(file.path, out.replaceAll('\n', eol));
   return InjectResult.inserted;
 }
+
+/// Adds [imports] after the last import of [source] (sorted later by
+/// `dart fix`). Skips the ones already present.
+String addImports(String source, List<String> imports) {
+  final missing = imports.where((i) => !source.contains(i)).toList();
+  if (missing.isEmpty) return source;
+  final lines = source.split('\n');
+  final last = lines.lastIndexWhere((l) => l.startsWith('import '));
+  lines.insertAll(last + 1, missing);
+  return lines.join('\n');
+}
+
+/// Adds the missing [imports] to the Dart file [file], keeping its line
+/// endings. Does nothing if the file does not exist.
+void ensureImports(File file, List<String> imports) {
+  final source = readText(file.path);
+  if (source == null) return;
+  final eol = source.contains('\r\n') ? '\r\n' : '\n';
+  final normalized = source.replaceAll('\r\n', '\n');
+  final result = addImports(normalized, imports);
+  if (result != normalized) writeText(file.path, result.replaceAll('\n', eol));
+}

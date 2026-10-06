@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_clean_arch/src/dependencies.dart';
 import 'package:flutter_clean_arch/src/generator.dart';
+import 'package:flutter_clean_arch/src/injector.dart';
 import 'package:flutter_clean_arch/src/journal.dart';
 import 'package:flutter_clean_arch/src/naming.dart';
 import 'package:flutter_clean_arch/src/process_runner.dart';
@@ -178,17 +179,6 @@ class _Patch {
   }
 }
 
-/// Adds [imports] after the last import of [source] (sorted later by
-/// `dart fix`). Skips the ones already present.
-String _addImports(String source, List<String> imports) {
-  final missing = imports.where((i) => !source.contains(i)).toList();
-  if (missing.isEmpty) return source;
-  final lines = source.split('\n');
-  final last = lines.lastIndexWhere((l) => l.startsWith('import '));
-  lines.insertAll(last + 1, missing);
-  return lines.join('\n');
-}
-
 /// Index of the `)` that closes the `(` at [open].
 int _closingParen(String source, int open) {
   var depth = 0;
@@ -222,7 +212,7 @@ List<_Patch> _patches(FlutterProject project) {
             !s.contains('await initDependencies();')) {
           return null;
         }
-        return _addImports(
+        return addImports(
           s
               .replaceFirst(
                 signature,
@@ -252,7 +242,7 @@ List<_Patch> _patches(FlutterProject project) {
         edit: (s) {
           final call = RegExp(r'bootstrap\(\s*\(\) => const App\(\),?\s*\)');
           if (!call.hasMatch(s)) return null;
-          return _addImports(
+          return addImports(
             s.replaceFirst(
               call,
               'bootstrap(\n'
@@ -288,7 +278,7 @@ List<_Patch> _patches(FlutterProject project) {
           marker,
           '  await initAuthDependencies(firebaseOptions: firebaseOptions);',
         );
-        return _addImports(lines.join('\n'), [firebaseImport, authImport]);
+        return addImports(lines.join('\n'), [firebaseImport, authImport]);
       },
       manual:
           'agrega `{required FirebaseOptions firebaseOptions}` a '
@@ -334,7 +324,7 @@ List<_Patch> _patches(FlutterProject project) {
         final marker = lines.indexWhere((l) => l.trim() == Markers.routes);
         lines.insertAll(marker, _authGoRoute.split('\n'));
         out = lines.join('\n');
-        return _addImports(out, [diImport, authImport]);
+        return addImports(out, [diImport, authImport]);
       },
       manual:
           'crea el GoRouter con `refreshListenable: GoRouterRefreshStream( '
@@ -361,7 +351,7 @@ List<_Patch> _patches(FlutterProject project) {
             '      child: ${s.substring(at, close + 1)},\n'
             '    )'
             '${s.substring(close + 1)}';
-        return _addImports(wrapped, [diImport, authImport, blocImport]);
+        return addImports(wrapped, [diImport, authImport, blocImport]);
       },
       manual:
           'envuelve MaterialApp.router en `BlocProvider.value(value: '
@@ -376,7 +366,7 @@ List<_Patch> _patches(FlutterProject project) {
           r'AppBar\(\s*title: Text\(context\.l10n\.homeTitle\),?\s*\)',
         );
         if (!appBar.hasMatch(s)) return null;
-        return _addImports(
+        return addImports(
           s.replaceFirst(appBar, _homeAppBar),
           [authImport, blocImport],
         );

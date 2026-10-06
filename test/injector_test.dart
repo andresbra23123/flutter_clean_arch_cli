@@ -109,4 +109,27 @@ void main() {
       );
     });
   });
+
+  group('ensureImports', () {
+    const typeDefs = "import 'package:demo_app/core/type_defs/type_defs.dart';";
+
+    test('adds a missing import after the last one', () {
+      file.writeAsStringSync("import 'a.dart';\r\n\r\nclass A {}\r\n");
+
+      ensureImports(file, [typeDefs]);
+
+      expect(
+        file.readAsStringSync(),
+        "import 'a.dart';\r\n$typeDefs\r\n\r\nclass A {}\r\n",
+      );
+    });
+
+    test('does nothing when the import is already there', () {
+      file.writeAsStringSync('$typeDefs\n\nclass A {}\n');
+
+      ensureImports(file, [typeDefs]);
+
+      expect(file.readAsStringSync(), '$typeDefs\n\nclass A {}\n');
+    });
+  });
 }
