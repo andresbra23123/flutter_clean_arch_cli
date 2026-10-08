@@ -43,7 +43,7 @@ dart pub global activate --source git https://github.com/andresbra23123/flutter_
 | Para… | Comando |
 |---|---|
 | Actualizar a la última versión de `main` | El mismo comando de instalación |
-| Instalar una versión fija | `dart pub global activate --source git https://github.com/andresbra23123/flutter_clean_arch_cli --git-ref v0.1.0` |
+| Instalar una versión fija | `dart pub global activate --source git https://github.com/andresbra23123/flutter_clean_arch_cli --git-ref v0.2.0` |
 | Ver la versión instalada | `flutter_clean_arch --version` (o `dart pub global list`, que además dice desde dónde está instalada) |
 | Desinstalar | `dart pub global deactivate flutter_clean_arch` |
 
@@ -63,7 +63,7 @@ La CLI trae ayuda integrada:
 | `flutter_clean_arch help <comando>` | El uso y las opciones de un comando, con sus valores por defecto. |
 | `flutter_clean_arch <comando> --help` | Lo mismo que el anterior. |
 | `flutter_clean_arch help remove feature` | La ayuda de un subcomando (`remove` y `rename` tienen subcomandos). |
-| `flutter_clean_arch --version` (o `-v`) | La versión instalada, por ejemplo `flutter_clean_arch 0.1.0`. |
+| `flutter_clean_arch --version` (o `-v`) | La versión instalada, por ejemplo `flutter_clean_arch 0.2.0`. |
 
 `help` solo recibe nombres de comandos: para ver qué hace `--returns`, usa `help usecase`, no `help usecase --returns`.
 
@@ -197,8 +197,8 @@ l10n.yaml, analysis_options.yaml
 `.flutter_clean_arch.yaml` se actualiza cada vez que un comando cambia el proyecto. Inclúyelo en git: `doctor` lo usa para avisar cuando la CLI instalada y el proyecto no coinciden.
 
 ```yaml
-created_with: 0.1.0
-last_modified_with: 0.1.0
+created_with: 0.2.0
+last_modified_with: 0.2.0
 auth: true
 ```
 

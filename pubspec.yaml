@@ -2,7 +2,7 @@ name: flutter_clean_arch
 description: >-
   CLI que genera y hace crecer proyectos Flutter con Clean Architecture:
   core, features, páginas, BLoCs, casos de uso, modelos, tests y auth.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/andresbra23123/flutter_clean_arch_cli
 publish_to: none
 
