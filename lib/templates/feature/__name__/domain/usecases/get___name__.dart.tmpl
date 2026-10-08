@@ -19,10 +19,8 @@ class Get{{Name}}UseCaseImpl implements UseCaseInter<{{Name}}Entity, NoParams> {
 
   /// Returns the [{{Name}}Entity], or a [Failure] if it could not be obtained.
   @override
-  FutureEither<{{Name}}Entity> call(NoParams params) async {
-    final result = await repository.get{{Name}}();
-    return result;
-  }
+  FutureEither<{{Name}}Entity> call(NoParams params) =>
+      repository.get{{Name}}();
 }
 
 // TODO({{todoTag}}): Create additional use cases for this feature.

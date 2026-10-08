@@ -1,0 +1,20 @@
+// ─────────────────────────────────────────────────────────────
+// ClockInter (contract)
+// Tells the current time. Repositories depend on this contract, so
+// tests can fix the time they store.
+// ─────────────────────────────────────────────────────────────
+
+/// Source of the current time.
+abstract interface class ClockInter {
+  /// The current local time.
+  DateTime now();
+}
+
+/// [ClockInter] that reads the device clock.
+class SystemClock implements ClockInter {
+  /// Creates the clock.
+  const SystemClock();
+
+  @override
+  DateTime now() => DateTime.now();
+}

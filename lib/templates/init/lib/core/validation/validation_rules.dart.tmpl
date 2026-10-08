@@ -1,0 +1,22 @@
+// ─────────────────────────────────────────────────────────────
+// ValidationRules
+// Rules shared by the use cases (domain) and the form validators
+// (presentation), so both enforce exactly the same thing. Pure Dart:
+// the domain layer cannot import Flutter.
+// ─────────────────────────────────────────────────────────────
+
+/// Input rules of the app.
+abstract final class ValidationRules {
+  /// Shortest password accepted when creating an account.
+  static const int minPasswordLength = 8;
+
+  static final RegExp _email = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
+
+  /// Whether [email] has a valid email address format.
+  static bool isValidEmail(String email) => _email.hasMatch(email);
+
+  /// Whether [value] is empty or contains only whitespace.
+  static bool isBlank(String value) => value.trim().isEmpty;
+
+  // TODO({{todoTag}}): Add the input rules specific to your domain below.
+}

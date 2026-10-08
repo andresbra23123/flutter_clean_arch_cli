@@ -161,7 +161,7 @@ lib/
 │     └─ app.dart               MaterialApp.router con tema y l10n
 ├─ core/
 │  ├─ animations/               Transiciones de go_router (routerAnimation)
-│  ├─ api/                      ApiClient (dio), endpoints e interceptor
+│  ├─ api/                      ApiClient (dio), interceptor, toAppException() y ApiDateFormat
 │  ├─ constants/                AppConstants (baseUrl, nombre, paginación…)
 │  ├─ di/                       injection_container.dart (get_it) + barril
 │  ├─ errors/                   Exceptions (data) y Failures (domain)
@@ -171,8 +171,9 @@ lib/
 │  ├─ router/                   AppRouter, AppRoutes, NotFoundPage, GoRouterRefreshStream
 │  ├─ theme/                    AppColors, AppTextStyles, AppTheme
 │  ├─ type_defs/                EitherOr<T>, FutureEither<T>, StreamEither<T> y toEither()
-│  ├─ usecases/                 UseCaseInter, UseCaseInterStream (streams) y NoParams
-│  └─ utils/                    AppUtils
+│  ├─ usecases/                 UseCaseInter, UseCaseInterStream (streams), UseCaseInterSync y NoParams
+│  ├─ utils/                    AppUtils, ClockInter (reloj) e IdGeneratorInter (uuid)
+│  └─ validation/               ValidationRules: reglas puras que comparten domain y los formularios
 └─ features/
    └─ home/
       ├─ home.dart
@@ -186,6 +187,7 @@ lib/
                └─ components/
                   ├─ components.dart
                   └─ home_welcome.dart
+test/core/                      Tests de type_defs, api_error, utils y validation
 test/helpers/                   pumpApp y barril
 .vscode/launch.json             Launch development/staging/production y depuración de tests
 l10n.yaml, analysis_options.yaml
@@ -213,12 +215,13 @@ lib/features/songs/
 │  ├─ datasources/
 │  │  ├─ datasources.dart
 │  │  ├─ local/   local.dart, songs_local_datasource_inter.dart, songs_local_datasource_impl.dart
-│  │  └─ remote/  remote.dart, songs_remote_datasource_inter.dart, songs_remote_datasource_impl.dart
+│  │  └─ remote/  remote.dart, songs_endpoints.dart, songs_remote_datasource_inter.dart, songs_remote_datasource_impl.dart
 │  ├─ models/        models.dart, songs_model.dart
 │  └─ repositories/  repositories.dart, songs_repository_impl.dart
 ├─ domain/
 │  ├─ domain.dart
 │  ├─ entities/      entities.dart, songs_entity.dart
+│  ├─ errors/        errors.dart, songs_error_codes.dart
 │  ├─ repositories/  repositories.dart, songs_repository_inter.dart
 │  └─ usecases/      usecases.dart, get_songs.dart
 └─ presentation/
@@ -241,7 +244,18 @@ lib/features/songs/
 - **Una carpeta por página.** `pages/<página>/` contiene la pantalla y una carpeta `components/` con los widgets que solo usa esa página. Los widgets que comparten varias páginas de la feature van en `presentation/widgets/`.
 - **Una carpeta por BLoC o Cubit.** `bloc/<nombre>/` contiene el bloc (o cubit) y su state, más el event en el caso de un BLoC. Event y state son `part` del archivo principal, así que el barril solo exporta ese archivo.
 - **`Inter` / `Impl`.** Los contratos terminan en `Inter` y sus implementaciones en `Impl`: repositorios, datasources, `NetworkInfo` y `UseCaseInter`.
-- **Errores como valores.** La capa data lanza `Exception`s (`ServerException`, `CacheException`, `AuthException`…). El repositorio las convierte en `Failure`s y devuelve `Either<Failure, T>` (dartz), con los alias `FutureEither<T>` y `StreamEither<T>` de `core/type_defs`. Los casos de uso implementan `UseCaseInter<T, Params>`, o `UseCaseInterStream<T, Params>` cuando emiten en el tiempo. `AuthException` y `AuthFailure` aceptan un `code` opcional para mostrar mensajes traducidos.
+- **Errores como valores.** La capa data lanza `Exception`s (`ServerException`, `NetworkException`, `CacheException`, `AuthException`…). El repositorio las convierte en `Failure`s y devuelve `Either<Failure, T>` (dartz), con los alias `FutureEither<T>` y `StreamEither<T>` de `core/type_defs`. Los casos de uso implementan `UseCaseInter<T, Params>`, `UseCaseInterStream<T, Params>` cuando emiten en el tiempo, o `UseCaseInterSync<T, Params>` cuando devuelven un valor inmediato que no puede fallar. `AuthException` y `AuthFailure` aceptan un `code` opcional, y `ValidationFailure` uno obligatorio (de `<feature>_error_codes.dart`), para mostrar mensajes traducidos.
+- **Errores HTTP en un solo lugar.** Los datasources remotos envuelven solo la llamada a `ApiClient` y convierten el `DioException` con `toAppException()` (`core/api/api_error.dart`): sin respuesta (sin conexión, timeout, DNS) es un `NetworkException`; con respuesta de error, un `ServerException` con su `statusCode` y el mensaje real del cuerpo (`message`, `error` o `detail`).
+  ```dart
+  final Response<dynamic> response;
+  try {
+    response = await apiClient.get(SongsEndpoints.base);
+  } on DioException catch (e) {
+    throw e.toAppException();
+  }
+  ```
+- **Endpoints por feature.** Cada feature declara sus rutas en `data/datasources/remote/<feature>_endpoints.dart` (`SongsEndpoints.base`); `core/api` no conoce las rutas de ninguna feature.
+- **Reloj e ids inyectables.** Los repositorios que guardan fechas o crean ids reciben `ClockInter` e `IdGeneratorInter` (por defecto `SystemClock` y `UuidIdGenerator`), así los tests los fijan.
 - **Streams.** El datasource expone un `Stream` normal, y el repositorio lo convierte con `toEither`. Cada valor sale como `Right` y cada error como `Left` con su `Failure`, sin cerrar el stream:
   ```dart
   @override
@@ -280,7 +294,7 @@ $ flutter_clean_arch feature albums --dry-run
 …
 (--dry-run) No se cambió nada. Esto es lo que haría:
 
-Crearía (34):
+Crearía (37):
   • lib/features/albums/albums.dart
   …
 Modificaría (3):
@@ -305,7 +319,7 @@ Si el código no es `0`, los cambios del comando se deshacen. La excepción es `
 
 ### `flutter_clean_arch init`
 
-Crea la base del proyecto (54 archivos, ver [Estructura generada](#después-de-init)). Además:
+Crea la base del proyecto (64 archivos, ver [Estructura generada](#después-de-init)). Además:
 
 - Borra `lib/main.dart` y `test/widget_test.dart` si siguen siendo los de `flutter create`.
 - En `pubspec.yaml` añade `flutter_localizations` y `flutter: generate: true`.
@@ -332,6 +346,7 @@ Crea la base del proyecto (54 archivos, ver [Estructura generada](#después-de-i
 | go_router | ^18.0.2 | | firebase_core | ^4.15.0 |
 | internet_connection_checker | ^3.0.1 | | firebase_auth | ^6.7.0 |
 | intl | ^0.20.2 | | google_sign_in | ^7.2.0 |
+| uuid | ^4.6.0 | | | |
 
 Para actualizar a una versión mayor en tu proyecto, cambia el rango en `pubspec.yaml`, ejecuta `flutter pub get` y luego `flutter analyze` y `flutter test`. Para actualizarla en la CLI, edita `initDependencies` (en `lib/src/commands/init_command.dart`) o `authDependencies` y ejecuta `dart test test_e2e`.
 
@@ -401,7 +416,7 @@ Hasta completar el paso 2, la app compila, pero al arrancar lanza un error que i
 
 ### `flutter_clean_arch feature <nombre>`
 
-Crea `lib/features/<nombre>/` con 34 archivos, ver [Una feature](#una-feature-feature-songs):
+Crea `lib/features/<nombre>/` con 37 archivos, ver [Una feature](#una-feature-feature-songs):
 
 - Entidad, modelo y datasources local y remoto (`Inter`/`Impl`), con soporte offline: si no hay conexión, el repositorio lee la caché.
 - Repositorio (`Inter`/`Impl`) y el caso de uso `Get<Nombre>UseCaseImpl`.
@@ -661,7 +676,7 @@ Genera en `test/features/<feature>/` los tests de lo que crea `feature`:
 | Test | Comprueba |
 |---|---|
 | `domain/usecases/get_<feature>_test.dart` | El caso de uso devuelve lo que le da el repositorio (`Right` y `Left`) |
-| `data/repositories/<feature>_repository_impl_test.dart` | Con conexión devuelve los datos remotos y los guarda en caché, y convierte `ServerException` y `AuthException` en failures. Sin conexión lee la caché y convierte `CacheException` |
+| `data/repositories/<feature>_repository_impl_test.dart` | Con conexión devuelve los datos remotos y los guarda en caché, y convierte `ServerException` y `NetworkException` en failures. Sin conexión lee la caché y convierte `CacheException` |
 | `presentation/bloc/<feature>/<feature>_bloc_test.dart` | Estado inicial, `Loading → Loaded` y `Loading → Error` (bloc_test) |
 | `presentation/pages/<feature>/<feature>_page_test.dart` | La vista muestra el indicador de carga, los datos y el error, y el botón de reintentar envía el evento (`MockBloc` + `pumpApp`) |
 

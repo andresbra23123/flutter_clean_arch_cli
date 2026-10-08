@@ -130,13 +130,11 @@ String usecaseTest({
       return '// TODO($todoTag): Create a $type for the tests.\n'
           '  late $type $name;';
     }
-    final keyword = value.endsWith('()') ? 'final' : 'const';
-    return '$keyword $name = $value;';
+    // Every sample value is a constant (NoParams has a const constructor).
+    return 'const $name = $value;';
   }
 
-  final right = resultValue == null || resultValue.endsWith('()')
-      ? 'Right'
-      : 'const Right';
+  final right = resultValue == null ? 'Right' : 'const Right';
 
   return '''
 import 'package:$package/core/errors/errors.dart';

@@ -1,0 +1,84 @@
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  final options = RequestOptions(path: '/items');
+
+  // Built like Dio does it, with its long generic message.
+  DioException withResponse(
+    int status,
+    Object? data, {
+    String? statusMessage,
+  }) => DioException.badResponse(
+    statusCode: status,
+    requestOptions: options,
+    response: Response<Object?>(
+      requestOptions: options,
+      statusCode: status,
+      statusMessage: statusMessage,
+      data: data,
+    ),
+  );
+
+  test('uses the message of a JSON error body', () {
+    final error = withResponse(422, {'message': 'name is required'});
+    expect(error.reason, 'name is required');
+    expect(error.isUnreachable, isFalse);
+  });
+
+  test('uses a plain text body, cut to the maximum length', () {
+    final error = withResponse(500, 'x' * 400);
+    expect(error.reason.length, DioExceptionX.maxBodyLength + 1);
+  });
+
+  test("uses the status text for an empty body, not Dio's message", () {
+    final error = withResponse(503, '', statusMessage: 'SERVICE UNAVAILABLE');
+    expect(error.reason, 'SERVICE UNAVAILABLE');
+  });
+
+  test('never uses an HTML error page', () {
+    const page = '<!doctype html><title>404</title><h1>Not Found</h1>';
+    expect(
+      withResponse(404, page, statusMessage: 'NOT FOUND').reason,
+      'NOT FOUND',
+    );
+    expect(withResponse(404, page).reason, 'HTTP 404');
+  });
+
+  test('uses the underlying error when Dio has no message', () {
+    final error = DioException(
+      requestOptions: options,
+      error: const FormatException("Failed host lookup: 'your-api.com'"),
+    );
+    expect(error.reason, contains('Failed host lookup'));
+    expect(error.isUnreachable, isTrue);
+  });
+
+  test('treats timeouts as unreachable', () {
+    final error = DioException.connectionTimeout(
+      requestOptions: options,
+      timeout: const Duration(seconds: 30),
+    );
+    expect(error.isUnreachable, isTrue);
+    expect(error.reason, isNotEmpty);
+  });
+
+  test('an answer with an error is a ServerException with its code', () {
+    expect(
+      withResponse(422, {'message': 'name is required'}).toAppException(),
+      isA<ServerException>()
+          .having((e) => e.statusCode, 'statusCode', 422)
+          .having((e) => e.message, 'message', 'name is required'),
+    );
+  });
+
+  test('no answer is a NetworkException', () {
+    final error = DioException.connectionTimeout(
+      requestOptions: options,
+      timeout: const Duration(seconds: 30),
+    );
+    expect(error.toAppException(), isA<NetworkException>());
+  });
+}

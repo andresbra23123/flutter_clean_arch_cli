@@ -61,8 +61,20 @@ class NotFoundFailure extends Failure {
   const NotFoundFailure({required super.message});
 }
 
+/// Failure when the input of a use case breaks a business rule.
+///
+/// [code] identifies the broken rule (see the `<feature>_error_codes.dart`
+/// of each feature), so the presentation layer can show a translated
+/// message.
+class ValidationFailure extends Failure {
+  /// Creates a validation failure for the rule identified by [code].
+  const ValidationFailure({required super.message, required this.code});
+
+  /// Identifies the broken rule, e.g. `invalid-email`.
+  final String code;
+
+  @override
+  List<Object> get props => [message, code];
+}
+
 // TODO({{todoTag}}): Add custom failures specific to your domain below.
-// Example:
-// class ValidationFailure extends Failure {
-//   const ValidationFailure({required super.message});
-// }

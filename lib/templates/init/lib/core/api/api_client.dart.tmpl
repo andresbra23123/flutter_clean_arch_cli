@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 // ApiClient
 // Configures the Dio HTTP client shared by every remote data source.
-// The base URL and timeouts come from AppConstants.
+// The base URL and timeouts come from AppConstants; the endpoint paths
+// live in each feature (`<feature>_endpoints.dart`).
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/api/api.dart';
@@ -10,54 +11,75 @@ import 'package:dio/dio.dart';
 
 /// HTTP client used by the remote data sources to call the API.
 ///
-/// Wraps a preconfigured [Dio] instance with the base URL, timeouts, JSON
-/// headers and the [ApiInterceptor]. Dio throws a [DioException] for
-/// connection errors, timeouts and non-2xx responses, so callers must catch
-/// it and convert it into a `ServerException`.
+/// Dio throws a [DioException] for connection errors, timeouts and non-2xx
+/// responses: callers catch it and throw `toAppException()` (see
+/// `DioExceptionX`).
 class ApiClient {
-  /// Creates the client with the configuration from [AppConstants].
-  ApiClient() {
-    _dio = Dio(
-      BaseOptions(
-        // TODO({{todoTag}}): Set the real API base URL in AppConstants.baseUrl.
-        baseUrl: AppConstants.baseUrl,
-        connectTimeout: const Duration(seconds: AppConstants.connectTimeout),
-        receiveTimeout: const Duration(seconds: AppConstants.receiveTimeout),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-
-    // Logs every request, response and error.
-    _dio.interceptors.add(ApiInterceptor());
-  }
-  late final Dio _dio;
-
-  /// The underlying [Dio] instance, for requests the helpers do not cover.
-  Dio get dio => _dio;
+  /// The underlying [Dio], for requests the helpers do not cover. Tests can
+  /// add an interceptor through it.
+  final Dio dio = Dio(
+    BaseOptions(
+      // TODO({{todoTag}}): Set the real API base URL in AppConstants.baseUrl.
+      baseUrl: AppConstants.baseUrl,
+      connectTimeout: const Duration(seconds: AppConstants.connectTimeout),
+      receiveTimeout: const Duration(seconds: AppConstants.receiveTimeout),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ),
+  )..interceptors.add(ApiInterceptor());
 
   /// Sends a GET request to [path] with optional [queryParameters].
-  Future<Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-  }) async {
-    return _dio.get(path, queryParameters: queryParameters);
-  }
+  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) =>
+      dio.get(path, queryParameters: queryParameters);
 
   /// Sends a POST request to [path] with [data] as the body.
-  Future<Response> post(String path, {dynamic data}) async {
-    return _dio.post(path, data: data);
-  }
+  ///
+  /// With [files] the body is a multipart form, and [data] must then be a
+  /// `Map<String, dynamic>` with the other fields.
+  Future<Response> post(
+    String path, {
+    Object? data,
+    List<ApiFile> files = const [],
+  }) async => dio.post(path, data: await _bodyOf(data, files));
 
   /// Sends a PUT request to [path] with [data] as the body.
-  Future<Response> put(String path, {dynamic data}) async {
-    return _dio.put(path, data: data);
-  }
+  ///
+  /// With [files] the body is a multipart form, as in [post].
+  Future<Response> put(
+    String path, {
+    Object? data,
+    List<ApiFile> files = const [],
+  }) async => dio.put(path, data: await _bodyOf(data, files));
 
-  /// Sends a DELETE request to [path].
-  Future<Response> delete(String path) async {
-    return _dio.delete(path);
+  /// Sends a DELETE request to [path] with optional [queryParameters].
+  Future<Response> delete(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) => dio.delete(path, queryParameters: queryParameters);
+
+  /// [data] as sent: a multipart form when there are [files], else as is.
+  static Future<Object?> _bodyOf(Object? data, List<ApiFile> files) async {
+    if (files.isEmpty) return data;
+    final form = FormData.fromMap(data as Map<String, dynamic>? ?? const {});
+    for (final file in files) {
+      form.files.add(
+        MapEntry(file.field, await MultipartFile.fromFile(file.path)),
+      );
+    }
+    return form;
   }
+}
+
+/// A file on the device uploaded with [ApiClient.post] or [ApiClient.put].
+class ApiFile {
+  /// Creates the file.
+  const ApiFile({required this.field, required this.path});
+
+  /// Form field that carries it, e.g. `images[]`.
+  final String field;
+
+  /// Absolute path of the file on the device.
+  final String path;
 }

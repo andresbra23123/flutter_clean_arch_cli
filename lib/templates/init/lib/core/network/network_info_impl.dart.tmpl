@@ -14,4 +14,9 @@ class NetworkInfoImpl implements NetworkInfoInter {
 
   @override
   Future<bool> get isConnected => connectionChecker.hasConnection;
+
+  @override
+  Stream<bool> get onStatusChange => connectionChecker.onStatusChange
+      .map((status) => status == InternetConnectionStatus.connected)
+      .distinct();
 }

@@ -1,0 +1,16 @@
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('UuidIdGenerator returns a new v4 uuid each time', () {
+    const ids = UuidIdGenerator();
+    final first = ids.next();
+    final second = ids.next();
+
+    expect(
+      first,
+      matches(RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')),
+    );
+    expect(second, isNot(first));
+  });
+}

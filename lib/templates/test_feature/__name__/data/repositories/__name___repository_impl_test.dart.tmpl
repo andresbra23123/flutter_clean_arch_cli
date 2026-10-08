@@ -60,16 +60,16 @@ void main() {
       );
     });
 
-    test('maps an AuthException to an AuthFailure', () async {
+    test('maps a NetworkException to a NetworkFailure', () async {
       when(
         () => remote.get{{Name}}(),
-      ).thenThrow(const AuthException(message: 'auth'));
+      ).thenThrow(const NetworkException(message: 'offline'));
 
       final result = await repository.get{{Name}}();
 
       expect(
         result,
-        const Left<Failure, {{Name}}Entity>(AuthFailure(message: 'auth')),
+        const Left<Failure, {{Name}}Entity>(NetworkFailure(message: 'offline')),
       );
     });
   });

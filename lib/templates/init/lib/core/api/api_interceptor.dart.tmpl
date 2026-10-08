@@ -1,16 +1,22 @@
 // ─────────────────────────────────────────────────────────────
 // ApiInterceptor
 // Runs on every request, response and error handled by ApiClient.
-// Currently it only logs; it is the place to add the auth token and
-// global error handling.
+// Currently it only logs (in debug mode); it is the place to add the
+// auth token and global error handling.
 // ─────────────────────────────────────────────────────────────
 
+import 'package:{{package}}/core/api/api.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 /// Dio interceptor attached to `ApiClient`.
 ///
-/// Logs every request, response and error to the console.
+/// In debug mode, logs every request, response and error to the console,
+/// with the duration of each call and the real cause of each failure.
 class ApiInterceptor extends Interceptor {
+  /// Key of `RequestOptions.extra` that stores when the request started.
+  static const String startedAtKey = 'startedAt';
+
   /// Runs before each request is sent.
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -21,10 +27,8 @@ class ApiInterceptor extends Interceptor {
     //   options.headers['Authorization'] = 'Bearer $token';
     // }
 
-    // TODO({{todoTag}}): Log only in debug mode (kDebugMode).
-    // Console logging is intended here.
-    // ignore: avoid_print
-    print('[API REQUEST] ${options.method} ${options.uri}');
+    options.extra[startedAtKey] = DateTime.now();
+    _log('[API REQUEST] ${options.method} ${options.uri}');
 
     handler.next(options);
   }
@@ -32,10 +36,10 @@ class ApiInterceptor extends Interceptor {
   /// Runs when a response is received.
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
-    // Console logging is intended here.
-    // ignore: avoid_print
-    print(
-      '[API RESPONSE] ${response.statusCode} ${response.requestOptions.uri}',
+    final options = response.requestOptions;
+    _log(
+      '[API RESPONSE] ${response.statusCode} ${options.method} '
+      '${options.uri} ${_elapsed(options)}',
     );
     handler.next(response);
   }
@@ -44,9 +48,27 @@ class ApiInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     // TODO({{todoTag}}): Handle global errors, e.g. refresh the token on a 401.
-    // Console logging is intended here.
-    // ignore: avoid_print
-    print('[API ERROR] ${err.response?.statusCode} ${err.message}');
+    final options = err.requestOptions;
+    final response = err.response;
+    final lines = [
+      '[API ERROR] ${options.method} ${options.uri} ${_elapsed(options)}',
+      '  type: ${err.type.name}',
+      '  status: ${response?.statusCode ?? '-'}',
+      '  reason: ${err.reason}',
+      if (err.message != null && err.message != err.reason)
+        '  dio: ${err.message}',
+    ];
+    _log(lines.join('\n'));
     handler.next(err);
+  }
+
+  String _elapsed(RequestOptions options) {
+    final startedAt = options.extra[startedAtKey];
+    if (startedAt is! DateTime) return '';
+    return '(${DateTime.now().difference(startedAt).inMilliseconds} ms)';
+  }
+
+  void _log(String message) {
+    if (kDebugMode) debugPrint(message);
   }
 }

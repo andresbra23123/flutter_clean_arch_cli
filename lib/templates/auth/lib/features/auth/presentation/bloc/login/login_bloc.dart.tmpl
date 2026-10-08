@@ -53,7 +53,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     Emitter<LoginState> emit,
   ) async {
     emit(const LoginLoading());
-    final result = await _signInWithGoogle(NoParams());
+    final result = await _signInWithGoogle(const NoParams());
     result.fold((failure) {
       final code = authErrorCode(failure);
       // Closing the Google dialog is not an error.

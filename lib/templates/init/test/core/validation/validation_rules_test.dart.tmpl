@@ -1,0 +1,24 @@
+import 'package:{{package}}/core/validation/validation.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('isValidEmail', () {
+    test('accepts a well-formed address', () {
+      expect(ValidationRules.isValidEmail('ana@example.com'), isTrue);
+      expect(ValidationRules.isValidEmail('ana.lopez@mail.example.co'), isTrue);
+    });
+
+    test('rejects malformed addresses', () {
+      expect(ValidationRules.isValidEmail(''), isFalse);
+      expect(ValidationRules.isValidEmail('ana'), isFalse);
+      expect(ValidationRules.isValidEmail('ana@'), isFalse);
+      expect(ValidationRules.isValidEmail('ana@example'), isFalse);
+    });
+  });
+
+  test('isBlank is true only for empty or whitespace text', () {
+    expect(ValidationRules.isBlank(''), isTrue);
+    expect(ValidationRules.isBlank('   '), isTrue);
+    expect(ValidationRules.isBlank(' a '), isFalse);
+  });
+}

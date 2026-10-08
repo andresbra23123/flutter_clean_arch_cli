@@ -1,0 +1,79 @@
+// ─────────────────────────────────────────────────────────────
+// DioExceptionX
+// Turns a failed request into the errors of the app: every remote data
+// source catches DioException and throws toAppException(). Dio leaves
+// `message` null for many failures, so [reason] digs out the real cause.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:dio/dio.dart';
+
+/// Readable cause of a [DioException] and its app exception.
+extension DioExceptionX on DioException {
+  /// Longest response body kept in [reason].
+  static const int maxBodyLength = 300;
+
+  /// Whether the request got no answer from the API (no connection, DNS,
+  /// TLS, timeout), as opposed to an answer with an error status.
+  bool get isUnreachable => switch (type) {
+    DioExceptionType.connectionError ||
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.sendTimeout ||
+    DioExceptionType.receiveTimeout => true,
+    // Sockets and handshakes that fail before connecting arrive as
+    // unknown, without a response.
+    DioExceptionType.unknown => response == null,
+    _ => false,
+  };
+
+  /// Why the request failed, without the status code.
+  ///
+  /// When the API answered: the message of a JSON body, then the status
+  /// text (`NOT FOUND`), then a plain-text body. HTML pages and Dio's
+  /// generic message for error statuses are never used.
+  ///
+  /// When it did not answer: the underlying [error] (e.g.
+  /// `SocketException: Failed host lookup`), then Dio's [message].
+  String get reason {
+    final answer = response;
+    if (answer != null) {
+      return _jsonMessage(answer.data) ??
+          _nonEmpty(answer.statusMessage) ??
+          _plainText(answer.data) ??
+          'HTTP ${answer.statusCode}';
+    }
+    final cause = error;
+    if (cause != null) return '$cause';
+    return _nonEmpty(message) ?? type.name;
+  }
+
+  /// The exception the remote data sources throw for this failure: a
+  /// [NetworkException] when the API was not reached, else a
+  /// [ServerException] with the status code. The message carries the real
+  /// cause (see [reason]).
+  AppException toAppException() => isUnreachable
+      ? NetworkException(message: '${type.name}: $reason')
+      : ServerException(message: reason, statusCode: response?.statusCode);
+
+  static String? _jsonMessage(Object? data) {
+    if (data is! Map) return null;
+    final message = data['message'] ?? data['error'] ?? data['detail'];
+    return message == null ? null : _nonEmpty('$message');
+  }
+
+  /// A text body, cut to [maxBodyLength]; `null` when it is empty, JSON
+  /// without a message, or markup such as an HTML error page.
+  static String? _plainText(Object? data) {
+    if (data == null || data is Map || data is List) return null;
+    final text = '$data'.trim();
+    if (text.isEmpty || text.startsWith('<')) return null;
+    return text.length > maxBodyLength
+        ? '${text.substring(0, maxBodyLength)}…'
+        : text;
+  }
+
+  static String? _nonEmpty(String? value) {
+    final text = value?.trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+}

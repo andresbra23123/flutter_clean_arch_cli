@@ -71,13 +71,22 @@ void main() {
         'lib/features/home/presentation/pages/home/home.dart',
         'lib/features/home/presentation/pages/home/home_page.dart',
         'lib/features/home/presentation/pages/home/components/components.dart',
+        'lib/core/api/api_error.dart',
+        'lib/core/api/api_date_format.dart',
+        'lib/core/utils/clock.dart',
+        'lib/core/utils/id_generator.dart',
+        'lib/core/validation/validation.dart',
+        'lib/core/validation/validation_rules.dart',
         'test/core/type_defs/type_defs_test.dart',
+        'test/core/api/api_error_test.dart',
         'l10n.yaml',
         'analysis_options.yaml',
         '.vscode/launch.json',
       ]),
     );
     expect(paths.any((p) => p.contains('features/auth')), isFalse);
+    // Endpoint paths live in each feature, not in core.
+    expect(paths, isNot(contains('lib/core/api/api_endpoints.dart')));
     expectClean(files);
     // The one-barrel-per-folder rule applies to lib/, not to test/.
     expectBarrels(paths.where((path) => path.startsWith('lib/')).toSet());
@@ -97,12 +106,14 @@ void main() {
         contains('FutureEither<ReturnType> call(ParamsType params);'),
         contains('abstract interface class UseCaseInterStream<'),
         contains('StreamEither<ReturnType> call(ParamsType params);'),
+        contains('abstract interface class UseCaseInterSync<'),
+        contains('const NoParams();'),
         isNot(contains('Future<Either<')),
       ),
     );
   });
 
-  test('feature renders 34 files under lib/features/<name>', () {
+  test('feature renders 37 files under lib/features/<name>', () {
     final files = generator.render(
       'feature',
       featureVars,
@@ -110,7 +121,7 @@ void main() {
     );
     final paths = files.map((f) => f.relativePath).toSet();
 
-    expect(files, hasLength(34));
+    expect(files, hasLength(37));
     expect(
       paths,
       containsAll([
@@ -120,7 +131,10 @@ void main() {
         'lib/features/user_profile/presentation/bloc/user_profile/user_profile_bloc.dart',
         'lib/features/user_profile/presentation/bloc/user_profile/user_profile.dart',
         'lib/features/user_profile/data/datasources/remote/user_profile_remote_datasource_inter.dart',
+        'lib/features/user_profile/data/datasources/remote/user_profile_endpoints.dart',
         'lib/features/user_profile/data/datasources/datasources.dart',
+        'lib/features/user_profile/domain/errors/errors.dart',
+        'lib/features/user_profile/domain/errors/user_profile_error_codes.dart',
         'lib/features/user_profile/presentation/bloc/bloc.dart',
         'lib/features/user_profile/presentation/pages/user_profile/user_profile_page.dart',
         'lib/features/user_profile/presentation/pages/user_profile/components/components.dart',
@@ -149,6 +163,16 @@ void main() {
     expect(
       content('_repository_impl.dart'),
       contains(Markers.repositoryMethods),
+    );
+
+    // The remote data source uses the feature's endpoints and the shared
+    // DioException mapping.
+    expect(
+      content('_remote_datasource_impl.dart'),
+      allOf(
+        contains('UserProfileEndpoints.base'),
+        contains('throw e.toAppException();'),
+      ),
     );
   });
 

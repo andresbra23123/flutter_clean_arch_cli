@@ -37,7 +37,7 @@ class {{Name}}RepositoryImpl implements {{Name}}RepositoryInter {
   /// Returns the {{nameWords}} data from the API when online, or from the cache
   /// when offline.
   ///
-  /// Errors are returned as a [ServerFailure], [AuthFailure] or
+  /// Errors are returned as a [ServerFailure], [NetworkFailure] or
   /// [CacheFailure].
   @override
   FutureEither<{{Name}}Entity> get{{Name}}() async {
@@ -52,8 +52,8 @@ class {{Name}}RepositoryImpl implements {{Name}}RepositoryInter {
         return Right(remote);
       } on ServerException catch (e) {
         return Left(ServerFailure(message: e.message));
-      } on AuthException catch (e) {
-        return Left(AuthFailure(message: e.message));
+      } on NetworkException catch (e) {
+        return Left(NetworkFailure(message: e.message));
       }
     } else {
       // Offline: return the cached data.

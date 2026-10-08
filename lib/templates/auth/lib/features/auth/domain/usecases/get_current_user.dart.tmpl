@@ -5,10 +5,12 @@
 // instead of an Either: AuthBloc needs it for its initial state.
 // ─────────────────────────────────────────────────────────────
 
+import 'package:{{package}}/core/usecases/usecases.dart';
 import 'package:{{package}}/features/auth/domain/domain.dart';
 
 /// Returns the signed-in user right now (`null` when there is no session).
-class GetCurrentUserUseCaseImpl {
+class GetCurrentUserUseCaseImpl
+    implements UseCaseInterSync<UserEntity?, NoParams> {
   /// Creates the use case with the [repository] it reads from.
   GetCurrentUserUseCaseImpl({required this.repository});
 
@@ -16,5 +18,6 @@ class GetCurrentUserUseCaseImpl {
   final AuthRepositoryInter repository;
 
   /// The current user, or `null`.
-  UserEntity? call() => repository.currentUser;
+  @override
+  UserEntity? call(NoParams params) => repository.currentUser;
 }

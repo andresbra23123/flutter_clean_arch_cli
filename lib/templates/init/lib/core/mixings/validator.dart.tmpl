@@ -2,26 +2,21 @@
 // Validator
 // Form field validators shared by every form of the app.
 // Mix it into the State of a form and pass `context.l10n`, so the
-// messages are translated.
+// messages are translated. The rules come from ValidationRules, the
+// same ones the use cases enforce.
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/validation/validation.dart';
 
 /// Validators for form fields.
 ///
 /// Each one returns the translated error message, or `null` when the value
 /// is valid.
 mixin Validator {
-  /// Minimum length of a password.
-  static const int minPasswordLength = 8;
-
-  static final RegExp _email = RegExp(
-    r'^.+@[a-zA-Z]+\.{1}[a-zA-Z]+(\.{0,1}[a-zA-Z]+)$',
-  );
-
   // Name validation
   String? validateName(AppLocalizations l10n, String? value) {
-    if (value == null || value.trim().isEmpty) {
+    if (value == null || ValidationRules.isBlank(value)) {
       return l10n.validationNameRequired;
     }
     return null;
@@ -33,7 +28,7 @@ mixin Validator {
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
       return l10n.validationEmailRequired;
-    } else if (!_email.hasMatch(email)) {
+    } else if (!ValidationRules.isValidEmail(email)) {
       return l10n.validationEmailInvalid;
     }
     return null;
@@ -41,10 +36,11 @@ mixin Validator {
 
   // Password validation
   String? validatePassword(AppLocalizations l10n, String? value) {
+    const minLength = ValidationRules.minPasswordLength;
     if (value == null || value.isEmpty) {
       return l10n.validationPasswordRequired;
-    } else if (value.length < minPasswordLength) {
-      return l10n.validationPasswordTooShort(minPasswordLength);
+    } else if (value.length < minLength) {
+      return l10n.validationPasswordTooShort(minLength);
     }
     return null;
   }

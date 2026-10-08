@@ -9,4 +9,8 @@
 abstract interface class NetworkInfoInter {
   /// Whether the device can currently reach the internet.
   Future<bool> get isConnected;
+
+  /// Emits `true` when the connection comes back and `false` when it is
+  /// lost; repeated values are skipped.
+  Stream<bool> get onStatusChange;
 }

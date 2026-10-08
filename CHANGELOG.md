@@ -9,6 +9,14 @@ Todos los cambios de la CLI `flutter_clean_arch`. Instala una versión concreta 
 - `core/usecases`: `UseCaseInterStream<T, Params>` para casos de uso que emiten en el tiempo.
 - `UseCaseInter.call` devuelve `FutureEither<T>`, y lo mismo hacen los casos de uso, los repositorios de `feature` y los métodos que añade `usecase`, en vez de `Future<Either<Failure, T>>`. `usecase` agrega el import de `type_defs` al repositorio si falta (features creadas antes) y solo importa `dartz` en el caso de uso cuando el tipo lo usa (`Unit`, `Option`…).
 - Los proyectos generados incluyen `test/core/type_defs/type_defs_test.dart`.
+- `core/api`: `toAppException()` (`api_error.dart`) convierte un `DioException` en `NetworkException` (sin respuesta) o `ServerException` (con el `statusCode` y el mensaje real del cuerpo). `ApiInterceptor` solo registra en modo debug, con la duración de cada llamada. `ApiClient` acepta archivos multipart (`ApiFile`) en `post`/`put` y `queryParameters` en `delete`. Nuevo `ApiDateFormat`. Se elimina `api_endpoints.dart`: cada feature declara sus rutas en `data/datasources/remote/<feature>_endpoints.dart`.
+- `core/utils`: `ClockInter`/`SystemClock` e `IdGeneratorInter`/`UuidIdGenerator` (nueva dependencia `uuid`). `AppUtils.formatDate` usa `intl`.
+- `core/validation`: `ValidationRules`, reglas en Dart puro que usan tanto los casos de uso como el mixin `Validator` (un único regex de email).
+- `core/network`: `NetworkInfoInter.onStatusChange`.
+- `core/errors`: `ValidationFailure` con `code`. `core/usecases`: `UseCaseInterSync` y `NoParams` con constructor `const`.
+- `feature`: `<feature>_endpoints.dart` y `domain/errors/<feature>_error_codes.dart`; el datasource remoto usa `toAppException()` y el repositorio convierte `NetworkException` en `NetworkFailure`.
+- Los proyectos generados incluyen tests de `api_error`, `clock`, `id_generator` y `validation_rules`.
+- Auth: `GetCurrentUserUseCaseImpl` implementa `UseCaseInterSync`.
 - Auth: un caso de uso por archivo (`watch_user.dart` y `get_current_user.dart` reemplazan a `session_use_cases.dart`). `WatchUser` implementa `UseCaseInterStream` y el repositorio devuelve `StreamEither<UserEntity?>`. Los errores del stream de Firebase se convierten en `AuthFailure`, y el `AuthBloc` los reporta sin cerrar la sesión.
 
 ## 0.1.0

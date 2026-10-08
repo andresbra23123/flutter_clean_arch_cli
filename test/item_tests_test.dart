@@ -86,7 +86,7 @@ void main() {
     test('NoParams calls the repository without arguments', () {
       final code = render('Unit', 'NoParams');
 
-      expect(code, contains('final params = NoParams();'));
+      expect(code, contains('const params = NoParams();'));
       expect(code, contains('repository.searchSongs()'));
     });
 

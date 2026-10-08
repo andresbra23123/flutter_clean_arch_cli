@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 // {{Name}}RemoteDataSourceImpl
-// Calls the remote API through ApiClient (Dio) and converts every
-// error into a ServerException.
+// Calls the remote API through ApiClient (Dio). A failed request becomes
+// a NetworkException (no answer) or a ServerException (error answer),
+// through DioException.toAppException().
 // ─────────────────────────────────────────────────────────────
 
 import 'package:{{package}}/core/api/api.dart';
@@ -17,22 +18,19 @@ class {{Name}}RemoteDataSourceImpl implements {{Name}}RemoteDataSourceInter {
 
   @override
   Future<{{Name}}Model> get{{Name}}() async {
+    final Response<dynamic> response;
     try {
-      // TODO({{todoTag}}): Move the path to ApiEndpoints and use the real one.
-      final response = await apiClient.get('/{{name}}');
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
-        // The response body does not have the expected JSON shape.
-        throw const ServerException(message: 'Invalid {{nameWords}} data received.');
-      }
-      return {{Name}}Model.fromJson(data);
+      response = await apiClient.get({{Name}}Endpoints.base);
     } on DioException catch (e) {
       // Dio throws for timeouts, connection errors and non-2xx responses.
-      throw ServerException(
-        message: e.message ?? 'Failed to fetch {{nameWords}} data.',
-        statusCode: e.response?.statusCode,
-      );
+      throw e.toAppException();
     }
+    final data = response.data;
+    if (data is! Map<String, dynamic>) {
+      // The response body does not have the expected JSON shape.
+      throw const ServerException(message: 'Invalid {{nameWords}} data received.');
+    }
+    return {{Name}}Model.fromJson(data);
   }
 
   // TODO({{todoTag}}): Implement additional API methods here.

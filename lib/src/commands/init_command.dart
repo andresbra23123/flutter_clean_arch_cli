@@ -28,6 +28,7 @@ const initDependencies = [
   'go_router:^18.0.2',
   'internet_connection_checker:^3.0.1',
   'intl:^0.20.2',
+  'uuid:^4.6.0',
 ];
 
 /// Dev dependencies added by `init`, pinned like [initDependencies].

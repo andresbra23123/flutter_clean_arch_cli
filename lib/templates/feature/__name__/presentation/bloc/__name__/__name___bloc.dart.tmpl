@@ -47,7 +47,7 @@ class {{Name}}Bloc extends Bloc<{{Name}}Event, {{Name}}State> {
   ) async {
     emit(const {{Name}}Loading());
 
-    final result = await _get{{Name}}(NoParams());
+    final result = await _get{{Name}}(const NoParams());
 
     result.fold(
       // Failure: show its message.

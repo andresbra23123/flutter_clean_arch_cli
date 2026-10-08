@@ -1,0 +1,24 @@
+// ─────────────────────────────────────────────────────────────
+// IdGeneratorInter (contract)
+// Creates the ids of new records. Repositories depend on this
+// contract, so tests can predict the ids they create.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:uuid/uuid.dart';
+
+/// Creates unique ids.
+abstract interface class IdGeneratorInter {
+  /// A new id, never returned before.
+  String next();
+}
+
+/// [IdGeneratorInter] that returns random (v4) uuids.
+class UuidIdGenerator implements IdGeneratorInter {
+  /// Creates the generator.
+  const UuidIdGenerator();
+
+  static const Uuid _uuid = Uuid();
+
+  @override
+  String next() => _uuid.v4();
+}

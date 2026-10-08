@@ -23,7 +23,7 @@ void main() {
 
   const user = UserEntity(id: 'uid', email: 'ana@test.com');
 
-  setUpAll(() => registerFallbackValue(NoParams()));
+  setUpAll(() => registerFallbackValue(const NoParams()));
 
   setUp(() {
     watchUser = _MockWatchUser();
@@ -32,7 +32,7 @@ void main() {
     // Broadcast: close() completes even when nothing is listening.
     users = StreamController<EitherOr<UserEntity?>>.broadcast();
     when(() => watchUser(any())).thenAnswer((_) => users.stream);
-    when(() => getCurrentUser()).thenReturn(null);
+    when(() => getCurrentUser(any())).thenReturn(null);
   });
 
   tearDown(() => users.close());
@@ -44,7 +44,7 @@ void main() {
   );
 
   test('starts authenticated when Firebase restored a session', () {
-    when(() => getCurrentUser()).thenReturn(user);
+    when(() => getCurrentUser(any())).thenReturn(user);
     expect(build().state, const AuthAuthenticated(user: user));
   });
 

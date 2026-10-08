@@ -3,7 +3,9 @@
 // General utility functions used across the app.
 // ─────────────────────────────────────────────────────────────
 
+import 'package:{{package}}/core/validation/validation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// Helpers for common UI actions, formatting and validation.
 class AppUtils {
@@ -46,20 +48,22 @@ class AppUtils {
     }
   }
 
-  // TODO({{todoTag}}): Use intl (DateFormat) for localized dates.
-  /// Formats [date] as `day/month/year`, without leading zeros.
-  static String formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  /// Formats [date] as a short date in [locale] (the current `Intl` locale
+  /// when `null`), e.g. `8/10/2026` in Spanish or `10/8/2026` in English.
+  ///
+  /// Pass `Localizations.localeOf(context).toString()` to follow the app.
+  static String formatDate(DateTime date, {String? locale}) {
+    return DateFormat.yMd(locale).format(date);
   }
 
   /// Whether [email] has a valid email address format.
   static bool isValidEmail(String email) {
-    return RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    return ValidationRules.isValidEmail(email);
   }
 
   /// Whether [value] is `null`, empty or contains only whitespace.
   static bool isNullOrEmpty(String? value) {
-    return value == null || value.trim().isEmpty;
+    return value == null || ValidationRules.isBlank(value);
   }
 
   // TODO({{todoTag}}): Add more utility methods specific to the app.

@@ -1,0 +1,31 @@
+// ─────────────────────────────────────────────────────────────
+// ApiDateFormat
+// How the API writes dates: `yyyy-MM-dd HH:mm:ss`, local time.
+// Models use it to send and read dates, so the format lives once.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:intl/intl.dart';
+
+/// Date format of the API.
+abstract final class ApiDateFormat {
+  // TODO({{todoTag}}): Use the date format of the real API.
+  static final DateFormat _format = DateFormat('yyyy-MM-dd HH:mm:ss');
+
+  /// [date] as the API expects it.
+  static String format(DateTime date) => _format.format(date);
+
+  /// Parses a date sent by the API (its own format or ISO 8601); `null`
+  /// when [value] is missing or not a date.
+  static DateTime? tryParse(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value) ?? _tryFormat(value);
+  }
+
+  static DateTime? _tryFormat(String value) {
+    try {
+      return _format.parseStrict(value);
+    } on FormatException {
+      return null;
+    }
+  }
+}

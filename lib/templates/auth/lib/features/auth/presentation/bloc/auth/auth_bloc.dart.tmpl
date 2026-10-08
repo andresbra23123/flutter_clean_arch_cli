@@ -26,7 +26,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this._watchUser,
     required GetCurrentUserUseCaseImpl getCurrentUser,
     required this._signOut,
-  }) : super(AuthState.fromUser(getCurrentUser())) {
+  }) : super(AuthState.fromUser(getCurrentUser(const NoParams()))) {
     on<AuthSubscriptionRequested>(_onSubscriptionRequested);
     on<AuthSignOutRequested>(_onSignOutRequested);
   }
@@ -44,7 +44,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) {
     return emit.forEach(
-      _watchUser(NoParams()),
+      _watchUser(const NoParams()),
       onData: (result) => result.fold((failure) {
         addError(failure);
         return state;
@@ -57,7 +57,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthSignOutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    final result = await _signOut(NoParams());
+    final result = await _signOut(const NoParams());
     result.fold((failure) => addError(failure), (_) {});
   }
 }
