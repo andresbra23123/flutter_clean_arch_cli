@@ -121,8 +121,7 @@ cd mi_app
 flutter_clean_arch init --force
 
 # Recomendado: guarda el punto de partida en git. Así podrás deshacer cualquier
-# comando, y remove, rename y --force te avisarán si hay cambios sin guardar.
-git init && git add -A && git commit -m "init"
+# comando, y remove, rename y --force te avisarán si hay cambios sin guardar.git init && git add -A && git commit -m "init"
 
 # Feature completa con su página, su BLoC, su ruta /songs y sus tests.
 flutter_clean_arch feature songs --tests
@@ -140,8 +139,14 @@ flutter_clean_arch usecase songs search_songs --returns "List<SongEntity>" --par
 # Comprobar que todo sigue las convenciones.
 flutter_clean_arch doctor
 
+# Ejecutar en desarrollo.
 flutter run --flavor development -t lib/main_development.dart
-flutter test
+
+# Generar APK de desarrollo (release).
+flutter build apk --release --flavor development -t lib/main_development.dart --no-tree-shake-icons
+
+# Generar Android App Bundle de desarrollo (release).
+flutter build appbundle --release --flavor development -t lib/main_development.dart --no-tree-shake-icons
 ```
 
 ## Estructura generada
