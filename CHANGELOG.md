@@ -3,7 +3,7 @@
 Todos los cambios de la CLI `flutter_clean_arch`. Instala una versión concreta con
 `dart pub global activate --source git https://github.com/andresbra23123/flutter_clean_arch_cli --git-ref v<versión>`.
 
-## Sin publicar
+## 0.3.0
 
 - Nuevo comando `queue` (y opción `init --queue`): cola de procesamiento offline en SQLite (patrón outbox). Crea `core/database` (`AppDatabase`, `FeatureSchema`, `UnitOfWork`), `core/queue_sync` (`QueueOutboxInter`, `QueueHandler`, `QueueHandlerRegistry`), la feature `processing_queue` (servicio de sincronización, política de reintentos y página de la cola), las features de ejemplo `transactions` y `feedback`, y sus tests. Agrega `ApiClient.send` con clave de idempotencia y las dependencias `sqflite`, `path` y `sqflite_common_ffi`. Se registra como `queue: true` en `.flutter_clean_arch.yaml`.
 - `auth` y `queue` comparten las ediciones de archivos base (`base_patch.dart`).
