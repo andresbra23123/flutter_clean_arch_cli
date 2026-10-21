@@ -1,0 +1,77 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsState
+// State of the transactions screen: the list and the one-shot result
+// of the last recorded transaction.
+// ─────────────────────────────────────────────────────────────
+
+part of 'transactions_bloc.dart';
+
+/// Whether the transactions were loaded.
+enum TransactionsViewStatus {
+  /// Waiting for the first read.
+  loading,
+
+  /// The transactions are shown.
+  ready,
+
+  /// The transactions could not be read.
+  failure,
+}
+
+/// State of the transactions screen.
+class TransactionsState extends Equatable {
+  /// Creates the state.
+  const TransactionsState({
+    this.status = TransactionsViewStatus.loading,
+    this.transactions = const [],
+    this.lastCreated,
+    this.failureMessage,
+    this.failureCode,
+  });
+
+  /// Whether the transactions were loaded.
+  final TransactionsViewStatus status;
+
+  /// Every transaction, newest first.
+  final List<TransactionEntity> transactions;
+
+  /// Transaction recorded last from this screen, shown once.
+  final TransactionEntity? lastCreated;
+
+  /// Message of the last failure, shown once.
+  final String? failureMessage;
+
+  /// Code of the last failure when it was a broken rule (see
+  /// `TransactionErrorCodes`), so the screen can translate it.
+  final String? failureCode;
+
+  /// Returns a copy with the given fields replaced. `lastCreated`,
+  /// `failureMessage` and `failureCode` are replaced by the value returned
+  /// by their function, so they can be set to `null`.
+  TransactionsState copyWith({
+    TransactionsViewStatus? status,
+    List<TransactionEntity>? transactions,
+    TransactionEntity? Function()? lastCreated,
+    String? Function()? failureMessage,
+    String? Function()? failureCode,
+  }) {
+    return TransactionsState(
+      status: status ?? this.status,
+      transactions: transactions ?? this.transactions,
+      lastCreated: lastCreated != null ? lastCreated() : this.lastCreated,
+      failureMessage: failureMessage != null
+          ? failureMessage()
+          : this.failureMessage,
+      failureCode: failureCode != null ? failureCode() : this.failureCode,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    status,
+    transactions,
+    lastCreated,
+    failureMessage,
+    failureCode,
+  ];
+}

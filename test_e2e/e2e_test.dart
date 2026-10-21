@@ -106,10 +106,18 @@ void main() {
       expect(File(p.join(app, 'lib/bootstrap.dart')).existsSync(), isFalse);
       expect(File(p.join(app, 'lib/main.dart')).existsSync(), isTrue);
 
-      await cliRun(['init', '--force', '--auth']);
+      await cliRun(['init', '--force', '--auth', '--queue']);
       expect(
         File(p.join(app, '.flutter_clean_arch.yaml')).readAsStringSync(),
-        allOf(contains('created_with:'), contains('auth: true')),
+        allOf(
+          contains('created_with:'),
+          contains('auth: true'),
+          contains('queue: true'),
+        ),
+      );
+      expect(
+        File(p.join(app, 'pubspec.yaml')).readAsStringSync(),
+        contains('sqflite: ^'),
       );
       expect(
         File(p.join(app, 'pubspec.yaml')).readAsStringSync(),

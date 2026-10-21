@@ -1,0 +1,105 @@
+import 'dart:async';
+
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockWatchFeedback extends Mock implements WatchFeedbackUseCaseImpl {}
+
+class _MockSendFeedback extends Mock implements SendFeedbackUseCaseImpl {}
+
+void main() {
+  late _MockWatchFeedback watchFeedback;
+  late _MockSendFeedback sendFeedback;
+  late StreamController<EitherOr<List<FeedbackEntity>>> reports;
+
+  final report = FeedbackEntity(
+    id: 'f1',
+    category: FeedbackCategory.bug,
+    description: 'No suena el audio',
+    createdAt: DateTime(2026, 10, 6),
+    queueId: 'q1',
+  );
+
+  setUpAll(() {
+    registerFallbackValue(const NoParams());
+    registerFallbackValue(
+      const SendFeedbackParams(category: FeedbackCategory.bug, description: ''),
+    );
+  });
+
+  setUp(() {
+    watchFeedback = _MockWatchFeedback();
+    sendFeedback = _MockSendFeedback();
+    reports = StreamController.broadcast();
+    when(() => watchFeedback(any())).thenAnswer((_) => reports.stream);
+  });
+
+  tearDown(() => reports.close());
+
+  FeedbackBloc build() =>
+      FeedbackBloc(watchFeedback: watchFeedback, sendFeedback: sendFeedback);
+
+  blocTest<FeedbackBloc, FeedbackState>(
+    'shows the reports and a read failure',
+    build: build,
+    act: (bloc) async {
+      bloc.add(const FeedbackSubscriptionRequested());
+      await Future<void>.delayed(Duration.zero);
+      reports
+        ..add(Right([report]))
+        ..add(const Left(CacheFailure(message: 'db')));
+    },
+    expect: () => [
+      FeedbackState(status: FeedbackViewStatus.ready, items: [report]),
+      FeedbackState(
+        status: FeedbackViewStatus.failure,
+        items: [report],
+        failureMessage: 'db',
+      ),
+    ],
+  );
+
+  blocTest<FeedbackBloc, FeedbackState>(
+    'sends the report through the use case',
+    setUp: () => when(
+      () => sendFeedback(any()),
+    ).thenAnswer((_) async => Right(report)),
+    build: build,
+    act: (bloc) => bloc.add(
+      const FeedbackSendRequested(
+        category: FeedbackCategory.bug,
+        description: 'No suena el audio',
+      ),
+    ),
+    expect: () => [FeedbackState(lastSent: report)],
+    verify: (_) => verify(
+      () => sendFeedback(
+        const SendFeedbackParams(
+          category: FeedbackCategory.bug,
+          description: 'No suena el audio',
+        ),
+      ),
+    ).called(1),
+  );
+
+  blocTest<FeedbackBloc, FeedbackState>(
+    'shows the failure when the report cannot be stored',
+    setUp: () => when(() => sendFeedback(any())).thenAnswer(
+      (_) async => const Left(CacheFailure(message: 'disk full')),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(
+      const FeedbackSendRequested(
+        category: FeedbackCategory.other,
+        description: 'Algo raro pasa',
+      ),
+    ),
+    expect: () => [const FeedbackState(failureMessage: 'disk full')],
+  );
+}

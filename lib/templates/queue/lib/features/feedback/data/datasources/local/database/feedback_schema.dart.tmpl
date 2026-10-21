@@ -1,0 +1,30 @@
+// ─────────────────────────────────────────────────────────────
+// feedbackSchema
+// Tables of the feedback feature and their migrations (rules in
+// core/database/feature_schema.dart). Opened by AppDatabase, which gets
+// it from core/di.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+
+/// Schema of the feedback feature. Position + 1 is its version.
+const FeatureSchema feedbackSchema = FeatureSchema(
+  name: 'feedback',
+  migrations: [_v1],
+);
+
+/// v1: the problem reports.
+///
+/// `queue_id` has no foreign key on purpose: the queue purges the items
+/// it already sent, while their reports stay.
+Future<void> _v1(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE feedback (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      queue_id TEXT NOT NULL UNIQUE
+    )
+  ''');
+}

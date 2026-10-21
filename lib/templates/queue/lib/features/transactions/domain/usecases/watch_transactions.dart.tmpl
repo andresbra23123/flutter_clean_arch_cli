@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// WatchTransactionsUseCase
+// Streams the transactions with their sync status as Either
+// (UseCaseInterStream).
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Streams every transaction, newest first.
+class WatchTransactionsUseCaseImpl
+    implements UseCaseInterStream<List<TransactionEntity>, NoParams> {
+  /// Creates the use case with the [repository] it reads from.
+  WatchTransactionsUseCaseImpl({required this.repository});
+
+  /// Source of the transactions data.
+  final TransactionsRepositoryInter repository;
+
+  /// Emits the transactions now and after every change, or a `Failure`
+  /// when they cannot be read.
+  @override
+  StreamEither<List<TransactionEntity>> call(NoParams params) =>
+      repository.watchTransactions();
+}

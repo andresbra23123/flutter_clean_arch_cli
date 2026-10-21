@@ -1,0 +1,109 @@
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockLocal extends Mock implements TransactionsLocalDataSourceInter {}
+
+class _MockRemote extends Mock implements TransactionsRemoteDataSourceInter {}
+
+void main() {
+  late _MockRemote remote;
+
+  setUp(() => remote = _MockRemote());
+
+  group('StoreTransactionQueueHandler', () {
+    late _MockLocal local;
+    late StoreTransactionQueueHandler handler;
+
+    setUp(() {
+      local = _MockLocal();
+      handler = StoreTransactionQueueHandler(
+        remoteDataSource: remote,
+        localDataSource: local,
+      );
+      when(() => local.applyServerCopy(any(), any())).thenAnswer((_) async {});
+    });
+
+    test('keeps the operation code of the items already queued', () {
+      // Changing it would strand every transaction waiting on the devices.
+      expect(handler.operation, 'transaction.create');
+    });
+
+    test('is sent before the other operations', () {
+      expect(handler.priority, QueuePriority.high);
+    });
+
+    test('sends the transaction and returns the API answer', () async {
+      const payload = {'id': 'tx-1', 'status': 'delivery'};
+      when(
+        () => remote.sendTransaction(any(), any()),
+      ).thenAnswer((_) async => const {'id': 991});
+
+      final answer = await handler.send('queue-id', payload);
+
+      expect(answer, {'id': 991});
+      verify(() => remote.sendTransaction('queue-id', payload)).called(1);
+    });
+
+    test('stores the server copy of the transaction it sent', () async {
+      const response = {'id': 991, 'delivery': '15000'};
+
+      await handler.onDelivered(const {'id': 'tx-1'}, response);
+
+      verify(() => local.applyServerCopy('tx-1', response)).called(1);
+    });
+
+    test('ignores an answer that is not a transaction', () async {
+      await handler.onDelivered(const {'id': 'tx-1'}, 'ok');
+      await handler.onDelivered(const {}, const {'id': 1});
+
+      verifyNever(() => local.applyServerCopy(any(), any()));
+    });
+  });
+
+  group('ClientTransactionQueueHandler', () {
+    test('start and end keep their own code and send a route event', () async {
+      when(
+        () => remote.sendRouteEvent(any(), any()),
+      ).thenAnswer((_) async => null);
+      final handlers = [
+        ClientTransactionQueueHandler.start(remoteDataSource: remote),
+        ClientTransactionQueueHandler.end(remoteDataSource: remote),
+      ];
+
+      expect(handlers.map((h) => h.operation), [
+        'transaction.start',
+        'transaction.end',
+      ]);
+      for (final handler in handlers) {
+        await handler.send('queue-id', const {'status': 'start'});
+      }
+      verify(
+        () => remote.sendRouteEvent('queue-id', const {'status': 'start'}),
+      ).called(2);
+    });
+
+    test('start and end share the priority of the transactions', () {
+      // Same priority keeps start → transaction → end in FIFO order.
+      expect(
+        ClientTransactionQueueHandler.start(remoteDataSource: remote).priority,
+        QueuePriority.high,
+      );
+      expect(
+        ClientTransactionQueueHandler.end(remoteDataSource: remote).priority,
+        QueuePriority.high,
+      );
+    });
+
+    test('both fit in one registry', () {
+      expect(
+        () => QueueHandlerRegistry([
+          ClientTransactionQueueHandler.start(remoteDataSource: remote),
+          ClientTransactionQueueHandler.end(remoteDataSource: remote),
+        ]),
+        returnsNormally,
+      );
+    });
+  });
+}

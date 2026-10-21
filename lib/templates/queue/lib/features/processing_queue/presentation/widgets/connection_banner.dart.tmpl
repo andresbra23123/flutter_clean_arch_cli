@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// ConnectionBanner
+// Tells the user whether the queue is being released (online) or
+// retaining the transactions (offline).
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+
+/// Full-width banner with the connection state.
+class ConnectionBanner extends StatelessWidget {
+  /// Creates the banner.
+  const ConnectionBanner({required this.isConnected, super.key});
+
+  /// Whether the device is online.
+  final bool isConnected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isConnected ? Colors.green : Colors.orange;
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(isConnected ? Icons.wifi : Icons.wifi_off, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isConnected
+                    ? context.l10n.queueOnline
+                    : context.l10n.queueOffline,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

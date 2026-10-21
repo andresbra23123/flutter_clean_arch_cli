@@ -1,0 +1,16 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionErrorCodes
+// Codes of the ValidationFailures returned by the transactions use
+// cases. The presentation layer can map each one to a translated
+// message.
+// ─────────────────────────────────────────────────────────────
+
+/// Business rules a new transaction can break.
+abstract final class TransactionErrorCodes {
+  /// The work (route) id is not a positive number.
+  static const String invalidWork = 'invalidWork';
+
+  /// A route event (start/end) was sent as the result of an order: it has
+  /// its own use cases.
+  static const String invalidStatus = 'invalidStatus';
+}

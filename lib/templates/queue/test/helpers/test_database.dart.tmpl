@@ -1,0 +1,27 @@
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+/// Schemas the app opens in core/di, so the tests use the real tables.
+const List<FeatureSchema> appSchemas = [
+  processingQueueSchema,
+  transactionsSchema,
+  feedbackSchema,
+];
+
+/// Opens a fresh in-memory [AppDatabase] on the desktop VM.
+///
+/// [schemas] defaults to the app ones; the tests of the migration runner
+/// pass their own. Close it in `tearDown`, so the next test starts empty.
+Future<AppDatabase> openTestDatabase({
+  List<FeatureSchema> schemas = appSchemas,
+}) {
+  sqfliteFfiInit();
+  return AppDatabase.open(
+    schemas: schemas,
+    path: inMemoryDatabasePath,
+    factory: databaseFactoryFfi,
+  );
+}

@@ -1,0 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionTile
+// One row of the transactions list: what it records, its route and
+// order and its sync status.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/widgets/widgets.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+import 'package:{{package}}/features/transactions/presentation/presentation.dart';
+
+/// Shows a [TransactionEntity].
+class TransactionTile extends StatelessWidget {
+  /// Creates the tile for [transaction].
+  const TransactionTile({required this.transaction, super.key});
+
+  /// Transaction to show.
+  final TransactionEntity transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
+    final date = DateFormat.yMd(locale).add_Hm().format(transaction.createdAt);
+    final order = transaction.orderNumber;
+
+    return ListTile(
+      leading: CircleAvatar(
+        child: Icon(transactionStatusIcon(transaction.status)),
+      ),
+      title: Text(
+        [
+          transactionStatusLabel(l10n, transaction.status),
+          ?order,
+        ].join(' · '),
+      ),
+      subtitle: Text('${l10n.transactionWork(transaction.workId)} · $date'),
+      trailing: QueueSyncStatusBadge(status: transaction.syncStatus),
+    );
+  }
+}

@@ -1,0 +1,64 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackState
+// State of the feedback screen: the list plus the one-shot result of
+// the last report sent.
+// ─────────────────────────────────────────────────────────────
+
+part of 'feedback_bloc.dart';
+
+/// Whether the reports were loaded.
+enum FeedbackViewStatus {
+  /// Waiting for the first read.
+  loading,
+
+  /// The reports are shown.
+  ready,
+
+  /// The reports could not be read.
+  failure,
+}
+
+/// State of the feedback screen.
+class FeedbackState extends Equatable {
+  /// Creates the state.
+  const FeedbackState({
+    this.status = FeedbackViewStatus.loading,
+    this.items = const [],
+    this.lastSent,
+    this.failureMessage,
+  });
+
+  /// Whether the reports were loaded.
+  final FeedbackViewStatus status;
+
+  /// Every report, newest first.
+  final List<FeedbackEntity> items;
+
+  /// Report sent last from this screen, shown once.
+  final FeedbackEntity? lastSent;
+
+  /// Message of the last failure, shown once.
+  final String? failureMessage;
+
+  /// Returns a copy with the given fields replaced. `lastSent` and
+  /// `failureMessage` are replaced by the value returned by their
+  /// function, so they can be set to `null`.
+  FeedbackState copyWith({
+    FeedbackViewStatus? status,
+    List<FeedbackEntity>? items,
+    FeedbackEntity? Function()? lastSent,
+    String? Function()? failureMessage,
+  }) {
+    return FeedbackState(
+      status: status ?? this.status,
+      items: items ?? this.items,
+      lastSent: lastSent != null ? lastSent() : this.lastSent,
+      failureMessage: failureMessage != null
+          ? failureMessage()
+          : this.failureMessage,
+    );
+  }
+
+  @override
+  List<Object?> get props => [status, items, lastSent, failureMessage];
+}

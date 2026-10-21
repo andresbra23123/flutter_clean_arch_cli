@@ -1,0 +1,32 @@
+// ─────────────────────────────────────────────────────────────
+// EndTransactionUseCase
+// Records that the driver closed the route (work). It goes to the
+// processing queue first and reaches POST /works/transactions/client.
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Runs "end transaction" through the [TransactionsRepositoryInter].
+class EndTransactionUseCaseImpl
+    implements UseCaseInter<TransactionEntity, RouteEventParams> {
+  /// Creates the use case with the [repository] it uses.
+  EndTransactionUseCaseImpl({required this.repository});
+
+  /// Source of the transactions data.
+  final TransactionsRepositoryInter repository;
+
+  /// Returns the stored transaction (status `end`), a
+  /// [ValidationFailure] when the work id is not valid, or a [Failure] if
+  /// it could not be stored or enqueued.
+  @override
+  FutureEither<TransactionEntity> call(RouteEventParams params) async {
+    final invalid = RouteEventParams.validateWork(params.workId);
+    if (invalid != null) return Left(invalid);
+    return repository.endTransaction(params);
+  }
+}

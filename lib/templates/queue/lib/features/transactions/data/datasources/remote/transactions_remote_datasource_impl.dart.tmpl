@@ -1,0 +1,79 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsRemoteDataSourceImpl
+// Calls the transactions API through ApiClient (Dio) and converts every
+// error into a NetworkException or a ServerException.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+
+/// [TransactionsRemoteDataSourceInter] implementation that uses
+/// [ApiClient].
+class TransactionsRemoteDataSourceImpl
+    implements TransactionsRemoteDataSourceInter {
+  /// Creates the data source with the [apiClient] it uses.
+  TransactionsRemoteDataSourceImpl({required this.apiClient});
+
+  /// HTTP client of the app.
+  final ApiClient apiClient;
+
+  /// Form field of every photo and of the signature.
+  static const String filesField = 'images[]';
+
+  /// Uploads can be slow on mobile networks.
+  static const Duration uploadTimeout = Duration(minutes: 3);
+
+  @override
+  Future<Object?> sendTransaction(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async {
+    final firm = payload['firm'];
+    try {
+      final response = await apiClient.send(
+        'POST',
+        TransactionsEndpoints.store,
+        idempotencyKey: idempotencyKey,
+        data: payload,
+        files: [
+          for (final path in _paths(payload['images']))
+            ApiFile(field: filesField, path: path),
+          if (firm is String && firm.isNotEmpty)
+            ApiFile(field: filesField, path: firm),
+        ],
+        timeout: uploadTimeout,
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.toAppException();
+    }
+  }
+
+  @override
+  Future<Object?> sendRouteEvent(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await apiClient.send(
+        'POST',
+        TransactionsEndpoints.client,
+        idempotencyKey: idempotencyKey,
+        data: payload,
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.toAppException();
+    }
+  }
+
+  /// Paths stored as a JSON list (see `TransactionModel.toJson`).
+  static List<String> _paths(Object? images) {
+    if (images is! String || images.isEmpty) return const [];
+    final decoded = jsonDecode(images);
+    return decoded is List ? [for (final path in decoded) '$path'] : const [];
+  }
+}

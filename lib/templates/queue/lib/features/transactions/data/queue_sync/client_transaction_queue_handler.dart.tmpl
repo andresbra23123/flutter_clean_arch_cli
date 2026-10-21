@@ -1,0 +1,45 @@
+// ─────────────────────────────────────────────────────────────
+// ClientTransactionQueueHandler
+// How a queued start or end of a route reaches the API: through
+// TransactionsRemoteDataSourceInter.sendRouteEvent. Both use the same
+// endpoint and differ in the `status` of the body, but keep their own
+// operation code, so the queue shows them apart. Registered twice in
+// the QueueHandlerRegistry by initTransactionsDependencies().
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+
+/// Sends a start or an end of a route.
+class ClientTransactionQueueHandler extends QueueHandler {
+  /// Handler of the start of a route.
+  const ClientTransactionQueueHandler.start({required this.remoteDataSource})
+    : operation = startCode,
+      priority = QueuePriority.high;
+
+  /// Handler of the end of a route.
+  const ClientTransactionQueueHandler.end({required this.remoteDataSource})
+    : operation = endCode,
+      priority = QueuePriority.high;
+
+  /// Code of a queued start. Never change it.
+  static const String startCode = 'transaction.start';
+
+  /// Code of a queued end. Never change it.
+  static const String endCode = 'transaction.end';
+
+  /// Sends the route events to the API.
+  final TransactionsRemoteDataSourceInter remoteDataSource;
+
+  @override
+  final String operation;
+
+  /// Route events go before the other operations, with the transactions
+  /// they frame (same priority, so start → transaction → end stays FIFO).
+  @override
+  final QueuePriority priority;
+
+  @override
+  Future<Object?> send(String idempotencyKey, Map<String, dynamic> payload) =>
+      remoteDataSource.sendRouteEvent(idempotencyKey, payload);
+}

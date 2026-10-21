@@ -1,0 +1,60 @@
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const policy = RetryPolicy(maxAttempts: 3);
+
+  test('an unreachable API is retried and stops the release', () {
+    expect(
+      policy.decide(const ApiUnreachable(), attempts: 1),
+      RetryDecision.retryAndStop,
+    );
+    expect(
+      policy.decide(const ApiUnreachable(), attempts: 3),
+      RetryDecision.failAndStop,
+    );
+  });
+
+  test('temporary server errors are retried until the limit', () {
+    for (final status in [null, 408, 429, 500, 503]) {
+      expect(
+        policy.decide(ApiRejected(status), attempts: 2),
+        RetryDecision.retry,
+        reason: '$status',
+      );
+      expect(
+        policy.decide(ApiRejected(status), attempts: 3),
+        RetryDecision.fail,
+        reason: '$status',
+      );
+    }
+  });
+
+  test('other client errors fail at once', () {
+    for (final status in [400, 401, 404, 409, 422]) {
+      expect(
+        policy.decide(ApiRejected(status), attempts: 1),
+        RetryDecision.fail,
+        reason: '$status',
+      );
+    }
+  });
+
+  test('an unknown operation fails at once', () {
+    expect(
+      policy.decide(const OperationUnknown(), attempts: 1),
+      RetryDecision.fail,
+    );
+  });
+
+  test('a decision tells whether the item fails and the release stops', () {
+    expect(RetryDecision.retry.fails, isFalse);
+    expect(RetryDecision.retry.stopsRelease, isFalse);
+    expect(RetryDecision.retryAndStop.fails, isFalse);
+    expect(RetryDecision.retryAndStop.stopsRelease, isTrue);
+    expect(RetryDecision.fail.fails, isTrue);
+    expect(RetryDecision.fail.stopsRelease, isFalse);
+    expect(RetryDecision.failAndStop.fails, isTrue);
+    expect(RetryDecision.failAndStop.stopsRelease, isTrue);
+  });
+}

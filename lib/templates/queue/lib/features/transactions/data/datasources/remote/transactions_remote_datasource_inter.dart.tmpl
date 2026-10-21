@@ -1,0 +1,31 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsRemoteDataSourceInter (contract)
+// The requests the transactions feature makes to the API. Every one is
+// queued: the processing queue calls them through the queue handlers in
+// data/queue_sync/, never the repository.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+
+/// Remote API contract for the transactions feature.
+///
+/// Implementations throw a [NetworkException] when the API cannot be
+/// reached and a [ServerException] when it answers with an error.
+abstract interface class TransactionsRemoteDataSourceInter {
+  // ── Queued: only the processing queue calls these ─────────────
+
+  /// `POST /works/transactions/store` (multipart): the result of an
+  /// order, with its photos and signature read from the device. Returns
+  /// the API answer: the stored transaction.
+  Future<Object?> sendTransaction(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  );
+
+  /// `POST /works/transactions/client`: the start or the end of a route,
+  /// told apart by the `status` of the [payload]. Returns the API answer.
+  Future<Object?> sendRouteEvent(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  );
+}

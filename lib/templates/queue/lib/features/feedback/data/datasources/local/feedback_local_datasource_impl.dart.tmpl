@@ -1,0 +1,55 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackLocalDataSourceImpl
+// Stores the problem reports through the FeedbackTable queries
+// (feedback_table.dart) and reads them joined with the status of their
+// queue item. It writes no SQL itself.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+
+/// [FeedbackLocalDataSourceInter] implementation backed by SQLite.
+class FeedbackLocalDataSourceImpl implements FeedbackLocalDataSourceInter {
+  /// Creates the data source on top of [database].
+  FeedbackLocalDataSourceImpl({required this.database});
+
+  /// Database that holds the reports.
+  final AppDatabase database;
+
+  /// Tables whose changes affect [watchAll].
+  static const Set<String> _watchedTables = {
+    FeedbackColumns.tableName,
+    QueueSyncColumns.queueTable,
+  };
+
+  /// Tables changed by [insert].
+  static const Set<String> _writtenTables = {FeedbackColumns.tableName};
+
+  @override
+  Stream<List<FeedbackModel>> watchAll() => database.watch(
+    _watchedTables,
+    () => _guard(() async {
+      final rows = await database.read(FeedbackTable.findAllWithSyncStatus);
+      return rows.map(FeedbackModel.fromRow).toList();
+    }),
+  );
+
+  @override
+  Future<void> insert(FeedbackModel feedback) => _guard(
+    () => database.write(
+      _writtenTables,
+      (db) => FeedbackTable.insert(db, feedback.toRow()),
+    ),
+  );
+
+  /// Runs [action], converting any storage error into a [CacheException].
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on Object catch (e) {
+      throw CacheException(message: 'Feedback storage error: $e');
+    }
+  }
+}

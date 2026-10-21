@@ -1,0 +1,101 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueState
+// State of the processing queue screen. A single class, because the
+// list, the connection and the running release change independently.
+// ─────────────────────────────────────────────────────────────
+
+part of 'processing_queue_bloc.dart';
+
+/// Whether the queue was loaded.
+enum ProcessingQueueViewStatus {
+  /// Waiting for the first read of the queue.
+  loading,
+
+  /// The queue is shown.
+  ready,
+
+  /// The queue could not be read.
+  failure,
+}
+
+/// State of the processing queue screen.
+class ProcessingQueueState extends Equatable {
+  /// Creates the state.
+  const ProcessingQueueState({
+    this.status = ProcessingQueueViewStatus.loading,
+    this.items = const [],
+    this.filter,
+    this.isConnected = false,
+    this.isReleasing = false,
+    this.releaseResult,
+    this.failureMessage,
+  });
+
+  /// Whether the queue was loaded.
+  final ProcessingQueueViewStatus status;
+
+  /// Every item in the queue, newest first.
+  final List<QueueItemEntity> items;
+
+  /// Status shown, or `null` for all.
+  final QueueSyncStatus? filter;
+
+  /// Whether the device is online.
+  final bool isConnected;
+
+  /// Whether a release requested from this screen is running.
+  final bool isReleasing;
+
+  /// Summary of the last release requested from this screen.
+  final QueueReleaseResult? releaseResult;
+
+  /// Message of the last failure, shown once.
+  final String? failureMessage;
+
+  /// Items that match [filter].
+  List<QueueItemEntity> get visibleItems => filter == null
+      ? items
+      : items.where((item) => item.status == filter).toList();
+
+  /// How many items are in [status].
+  int countOf(QueueSyncStatus status) =>
+      items.where((item) => item.status == status).length;
+
+  /// Returns a copy with the given fields replaced. `filter`,
+  /// `releaseResult` and `failureMessage` are replaced by the value
+  /// returned by their function, so they can be set to `null`.
+  ProcessingQueueState copyWith({
+    ProcessingQueueViewStatus? status,
+    List<QueueItemEntity>? items,
+    QueueSyncStatus? Function()? filter,
+    bool? isConnected,
+    bool? isReleasing,
+    QueueReleaseResult? Function()? releaseResult,
+    String? Function()? failureMessage,
+  }) {
+    return ProcessingQueueState(
+      status: status ?? this.status,
+      items: items ?? this.items,
+      filter: filter != null ? filter() : this.filter,
+      isConnected: isConnected ?? this.isConnected,
+      isReleasing: isReleasing ?? this.isReleasing,
+      releaseResult: releaseResult != null
+          ? releaseResult()
+          : this.releaseResult,
+      failureMessage: failureMessage != null
+          ? failureMessage()
+          : this.failureMessage,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    status,
+    items,
+    filter,
+    isConnected,
+    isReleasing,
+    releaseResult,
+    failureMessage,
+  ];
+}

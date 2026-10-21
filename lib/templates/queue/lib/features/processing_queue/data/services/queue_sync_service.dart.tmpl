@@ -1,0 +1,104 @@
+// ─────────────────────────────────────────────────────────────
+// QueueSyncService
+// Releases the processing queue automatically: on start, every time
+// the connection comes back, when the app returns to the foreground
+// and periodically while online (to retry temporary API failures).
+// It only runs use cases: the rules stay in the domain and the
+// repository. Started once from bootstrap.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Keeps the processing queue flowing without user interaction.
+class QueueSyncService {
+  /// Creates the service.
+  ///
+  /// [retryInterval] is how often the queue is released while online, so
+  /// items that failed for a temporary reason (5xx, timeout) are retried.
+  /// [purgeDoneAfter] is how long [QueueSyncStatus.done] items are kept.
+  QueueSyncService({
+    required this.recoverInterruptedItems,
+    required this.purgeDoneItems,
+    required this.releaseQueue,
+    required this.networkInfo,
+    this.retryInterval = const Duration(minutes: 1),
+    this.purgeDoneAfter = const Duration(days: 7),
+  });
+
+  /// Puts back the items left in processing when the app was closed.
+  final RecoverInterruptedItemsUseCaseImpl recoverInterruptedItems;
+
+  /// Deletes the old finished items.
+  final PurgeDoneItemsUseCaseImpl purgeDoneItems;
+
+  /// Sends the pending items.
+  final ReleaseQueueUseCaseImpl releaseQueue;
+
+  /// Tells when the connection comes back.
+  final NetworkInfoInter networkInfo;
+
+  /// How often the queue is released while online.
+  final Duration retryInterval;
+
+  /// How long finished items are kept before being deleted.
+  final Duration purgeDoneAfter;
+
+  StreamSubscription<bool>? _connection;
+  AppLifecycleListener? _lifecycle;
+  Timer? _timer;
+  bool _isConnected = false;
+
+  /// Whether [start] was called and [stop] was not.
+  bool get isRunning => _connection != null;
+
+  /// Recovers interrupted items, releases the queue if online and starts
+  /// listening to the connection.
+  ///
+  /// [observeLifecycle] also releases the queue when the app returns to
+  /// the foreground; it needs the Flutter binding, so tests turn it off.
+  Future<void> start({bool observeLifecycle = true}) async {
+    if (isRunning) return;
+
+    // Items left in processing when the app was closed go back to the
+    // queue, and old finished items are cleaned up.
+    await recoverInterruptedItems(const NoParams());
+    await purgeDoneItems(purgeDoneAfter);
+
+    _connection = networkInfo.onStatusChange.listen(_onConnectionChanged);
+    _isConnected = await networkInfo.isConnected;
+    if (_isConnected) await _release();
+
+    _timer = Timer.periodic(retryInterval, (_) {
+      if (_isConnected) unawaited(_release());
+    });
+    if (observeLifecycle) {
+      _lifecycle = AppLifecycleListener(onResume: () => unawaited(_release()));
+    }
+  }
+
+  /// Stops listening. The queue keeps its items.
+  Future<void> stop() async {
+    await _connection?.cancel();
+    _connection = null;
+    _timer?.cancel();
+    _timer = null;
+    _lifecycle?.dispose();
+    _lifecycle = null;
+  }
+
+  void _onConnectionChanged(bool connected) {
+    _isConnected = connected;
+    // The connection is back: release everything that was retained.
+    if (connected) unawaited(_release());
+  }
+
+  Future<void> _release() async {
+    await releaseQueue(const NoParams());
+  }
+}

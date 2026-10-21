@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// WatchFeedbackUseCase
+// Streams the problem reports with their sync status as Either
+// (UseCaseInterStream).
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// Streams every problem report, newest first.
+class WatchFeedbackUseCaseImpl
+    implements UseCaseInterStream<List<FeedbackEntity>, NoParams> {
+  /// Creates the use case with the [repository] it reads from.
+  WatchFeedbackUseCaseImpl({required this.repository});
+
+  /// Source of the feedback data.
+  final FeedbackRepositoryInter repository;
+
+  /// Emits the reports now and after every change, or a `Failure` when
+  /// they cannot be read.
+  @override
+  StreamEither<List<FeedbackEntity>> call(NoParams params) =>
+      repository.watchFeedback();
+}

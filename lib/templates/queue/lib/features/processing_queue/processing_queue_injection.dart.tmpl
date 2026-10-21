@@ -1,0 +1,90 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueue dependency injection
+// Registers every dependency of the processing queue feature.
+// Called from initDependencies() in core/di/injection_container.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/processing_queue/data/data.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+import 'package:{{package}}/features/processing_queue/presentation/presentation.dart';
+
+/// Registers the BLoC, use cases, repository, data source and sync
+/// service of the processing queue feature.
+///
+/// Needs `AppDatabase`, `UnitOfWork`, `NetworkInfoInter` and the
+/// `QueueHandlerRegistry` registered first. Registers the
+/// `QueueOutboxInter` the other features enqueue through. Contracts are
+/// registered with their `Inter` type, so the implementations can be
+/// swapped (e.g. for mocks in tests).
+void initProcessingQueueDependencies() {
+  getIt
+    // ── Presentation ────────────────────────────────────────
+    // Factory: a new BLoC every time a screen asks for one.
+    ..registerFactory(
+      () => ProcessingQueueBloc(
+        watchQueue: getIt(),
+        watchConnection: getIt(),
+        releaseQueue: getIt(),
+        retryQueueItem: getIt(),
+        retryFailedItems: getIt(),
+        purgeDoneItems: getIt(),
+      ),
+    )
+    // flutter_clean_arch:blocs
+    // ── Domain ──────────────────────────────────────────────
+    // Lazy singletons: created once, the first time they are needed.
+    ..registerLazySingleton(() => WatchQueueUseCaseImpl(repository: getIt()))
+    ..registerLazySingleton(
+      () => WatchConnectionUseCaseImpl(networkInfo: getIt()),
+    )
+    ..registerLazySingleton(
+      () => EnqueueItemUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => ReleaseQueueUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => RetryQueueItemUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => RetryFailedItemsUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => PurgeDoneItemsUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => RecoverInterruptedItemsUseCaseImpl(repository: getIt()),
+    )
+    // flutter_clean_arch:usecases
+    // ── Data ────────────────────────────────────────────────
+    // Singleton on purpose: it holds the lock that keeps a single
+    // release running at a time.
+    ..registerLazySingleton<ProcessingQueueRepositoryInter>(
+      () => ProcessingQueueRepositoryImpl(
+        handlers: getIt(),
+        localDataSource: getIt(),
+        networkInfo: getIt(),
+        unitOfWork: getIt(),
+      ),
+    )
+    // The same instance, seen by the other features only as the outbox
+    // they enqueue through.
+    ..registerLazySingleton<QueueOutboxInter>(
+      () => getIt<ProcessingQueueRepositoryInter>(),
+    )
+    ..registerLazySingleton<ProcessingQueueLocalDataSourceInter>(
+      () => ProcessingQueueLocalDataSourceImpl(database: getIt()),
+    )
+    // Releases the queue when the connection comes back. Started from
+    // bootstrap.dart.
+    ..registerLazySingleton(
+      () => QueueSyncService(
+        recoverInterruptedItems: getIt(),
+        purgeDoneItems: getIt(),
+        releaseQueue: getIt(),
+        networkInfo: getIt(),
+      ),
+    );
+}

@@ -1,0 +1,38 @@
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/helpers.dart';
+
+void main() {
+  late FakeApi api;
+  late FeedbackRemoteDataSourceImpl dataSource;
+
+  setUp(() {
+    api = FakeApi();
+    dataSource = FeedbackRemoteDataSourceImpl(apiClient: api.client);
+  });
+
+  group('queued', () {
+    test('sendFeedback posts the report with its idempotency key', () async {
+      await dataSource.sendFeedback('queue-id', const {'id': 'fb-1'});
+
+      final request = api.requests.single;
+      expect(request.method, 'POST');
+      expect(request.path, FeedbackEndpoints.create);
+      expect(request.data, {'id': 'fb-1'});
+      expect(request.headers[ApiClient.idempotencyHeader], 'queue-id');
+    });
+
+    test('without an answer from the API it is a NetworkException', () async {
+      api.fail = DioExceptionType.connectionError;
+
+      await expectLater(
+        dataSource.sendFeedback('queue-id', const {}),
+        throwsA(isA<NetworkException>()),
+      );
+    });
+  });
+}

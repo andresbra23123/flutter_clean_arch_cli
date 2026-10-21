@@ -18,6 +18,7 @@ void main() {
         createdWith: '0.3.1',
         lastModifiedWith: '0.4.0',
         auth: true,
+        queue: true,
       ),
     );
 
@@ -25,6 +26,7 @@ void main() {
     expect(config.createdWith, '0.3.1');
     expect(config.lastModifiedWith, '0.4.0');
     expect(config.auth, isTrue);
+    expect(config.queue, isTrue);
   });
 
   test('a missing file reads as null', () {

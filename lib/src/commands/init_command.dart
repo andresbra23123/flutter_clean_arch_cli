@@ -12,6 +12,7 @@ import 'package:flutter_clean_arch/src/journal.dart';
 import 'package:flutter_clean_arch/src/naming.dart';
 import 'package:flutter_clean_arch/src/process_runner.dart';
 import 'package:flutter_clean_arch/src/project.dart';
+import 'package:flutter_clean_arch/src/queue_installer.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
@@ -67,6 +68,13 @@ class InitCommand extends Command<int> {
         help:
             'Agrega autenticación con Firebase (email + Google), como '
             '`flutter_clean_arch auth`.',
+      )
+      ..addFlag(
+        'queue',
+        negatable: false,
+        help:
+            'Agrega la cola de procesamiento offline (SQLite) con sus '
+            'features de ejemplo, como `flutter_clean_arch queue`.',
       );
   }
 
@@ -145,6 +153,11 @@ class InitCommand extends Command<int> {
 
     if (argResults!['auth'] as bool) {
       final code = await installAuth(project, runPub: runPub);
+      if (code != 0) return code;
+    }
+
+    if (argResults!['queue'] as bool) {
+      final code = await installQueue(project, runPub: runPub);
       if (code != 0) return code;
     }
 

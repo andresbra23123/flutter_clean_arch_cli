@@ -1,0 +1,97 @@
+// ─────────────────────────────────────────────────────────────
+// RetryPolicy
+// Business rule of the processing queue: what happens to an item
+// after a failed attempt to send it. Pure Dart, so it can be tested
+// and changed without touching the data layer, which only reports
+// why the attempt failed (DeliveryFailure) and applies the decision.
+// ─────────────────────────────────────────────────────────────
+
+/// Why sending a queue item failed.
+sealed class DeliveryFailure {
+  const DeliveryFailure();
+}
+
+/// The API could not be reached (no connection or timeout).
+class ApiUnreachable extends DeliveryFailure {
+  /// Creates the failure.
+  const ApiUnreachable();
+}
+
+/// The API answered with an error, or with no status code when the
+/// connection broke during the request.
+class ApiRejected extends DeliveryFailure {
+  /// Creates the failure with the HTTP [statusCode], if any.
+  const ApiRejected(this.statusCode);
+
+  /// HTTP status code of the response, or `null` without one.
+  final int? statusCode;
+}
+
+/// This version of the app does not know how to send the item.
+class OperationUnknown extends DeliveryFailure {
+  /// Creates the failure.
+  const OperationUnknown();
+}
+
+/// What happens to an item after a failed attempt.
+enum RetryDecision {
+  /// Back to the queue; the release goes on with the next item.
+  retry,
+
+  /// Back to the queue; the release stops, because the next items would
+  /// fail the same way.
+  retryAndStop,
+
+  /// To error (only a manual retry sends it again); the release goes on.
+  fail,
+
+  /// To error; the release stops.
+  failAndStop;
+
+  /// Whether the item moves to error.
+  bool get fails => this == fail || this == failAndStop;
+
+  /// Whether the release stops after this item.
+  bool get stopsRelease => this == retryAndStop || this == failAndStop;
+}
+
+/// Decides whether a failed item is retried.
+///
+/// - API unreachable → retry and stop the release (the rest would fail
+///   too), until [maxAttempts]; then error.
+/// - No status code, 408, 429 or 5xx → retry, until [maxAttempts]; then
+///   error.
+/// - Any other 4xx → error.
+/// - Unknown operation → error (retrying would fail the same way).
+class RetryPolicy {
+  /// Creates the policy.
+  const RetryPolicy({this.maxAttempts = defaultMaxAttempts});
+
+  /// Failed attempts allowed by default before an item moves to error.
+  static const int defaultMaxAttempts = 5;
+
+  /// Failed attempts allowed before an item moves to error.
+  final int maxAttempts;
+
+  /// Decision for an item that just failed its [attempts]-th attempt
+  /// because of [failure].
+  RetryDecision decide(DeliveryFailure failure, {required int attempts}) {
+    final exhausted = attempts >= maxAttempts;
+    return switch (failure) {
+      ApiUnreachable() =>
+        exhausted ? RetryDecision.failAndStop : RetryDecision.retryAndStop,
+      ApiRejected(:final statusCode) when isRetryable(statusCode) =>
+        exhausted ? RetryDecision.fail : RetryDecision.retry,
+      ApiRejected() => RetryDecision.fail,
+      OperationUnknown() => RetryDecision.fail,
+    };
+  }
+
+  /// Without a status code the API was not reached; 408, 429 and 5xx are
+  /// temporary on the server side.
+  static bool isRetryable(int? statusCode) =>
+      statusCode == null ||
+      statusCode == 408 ||
+      statusCode == 429 ||
+      statusCode >= 500;
+}

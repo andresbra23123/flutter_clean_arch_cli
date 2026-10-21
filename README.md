@@ -15,7 +15,7 @@ CLI que genera y hace crecer proyectos Flutter con Clean Architecture. Con `init
 - [Estructura generada](#estructura-generada)
 - [Convenciones](#convenciones)
 - [Comandos](#comandos)
-  - Crear: [init](#flutter_clean_arch-init), [auth](#flutter_clean_arch-auth), [feature](#flutter_clean_arch-feature-nombre), [page](#flutter_clean_arch-page-feature-nombre), [bloc](#flutter_clean_arch-bloc-feature-nombre), [usecase](#flutter_clean_arch-usecase-feature-nombre), [component](#flutter_clean_arch-component-feature-página-nombre), [widget](#flutter_clean_arch-widget-feature-nombre), [model](#flutter_clean_arch-model-feature-nombre---from-json-archivo), [test](#flutter_clean_arch-test-feature)
+  - Crear: [init](#flutter_clean_arch-init), [auth](#flutter_clean_arch-auth), [queue](#flutter_clean_arch-queue), [feature](#flutter_clean_arch-feature-nombre), [page](#flutter_clean_arch-page-feature-nombre), [bloc](#flutter_clean_arch-bloc-feature-nombre), [usecase](#flutter_clean_arch-usecase-feature-nombre), [component](#flutter_clean_arch-component-feature-página-nombre), [widget](#flutter_clean_arch-widget-feature-nombre), [model](#flutter_clean_arch-model-feature-nombre---from-json-archivo), [test](#flutter_clean_arch-test-feature)
   - Modificar: [rename](#flutter_clean_arch-rename), [remove](#flutter_clean_arch-remove)
   - Revisar: [doctor](#flutter_clean_arch-doctor)
   - [Protecciones](#protecciones) y [códigos de salida](#códigos-de-salida)
@@ -86,6 +86,7 @@ Comandos:
   init        Crea la estructura general: core, app, bootstrap, flavors, home, página no encontrada, l10n y dependencias.
   model       Genera la entidad y el modelo (fromJson/toJson) de una feature a partir de un JSON de ejemplo, incluidos los objetos anidados.
   page        Agrega una página (con su carpeta components/) a una feature y registra su ruta.
+  queue       Agrega una cola de procesamiento offline (SQLite): la base de datos local, la feature processing_queue, las features de ejemplo transactions y feedback, y sus tests.
   remove      Elimina una feature, página, BLoC o use case y deshace sus exports, registros en el DI y rutas.
   rename      Renombra una feature, página o BLoC: carpetas, archivos, clases, exports, DI y rutas.
   test        Genera los tests de una feature: use case, repositorio, BLoC y página (bloc_test y mocktail).
@@ -117,7 +118,8 @@ flutter create --org com.example mi_app
 cd mi_app
 
 # Base del proyecto. --force porque flutter create ya trae analysis_options.yaml.
-# Añade --auth para incluir login con Firebase (email + Google).
+# Añade --auth para incluir login con Firebase (email + Google)
+# y --queue para incluir la cola de procesamiento offline.
 flutter_clean_arch init --force
 
 # Recomendado: guarda el punto de partida en git. Así podrás deshacer cualquier
@@ -205,6 +207,7 @@ l10n.yaml, analysis_options.yaml
 created_with: 0.2.0
 last_modified_with: 0.2.0
 auth: true
+queue: false
 ```
 
 Cada carpeta de `core/` tiene su barril, por ejemplo `core/router/router.dart`.
@@ -291,7 +294,7 @@ Todos los comandos que cambian archivos tienen estas protecciones. `--dry-run` y
 |---|---|
 | **Deshacer si algo falla** | La CLI registra cada archivo que toca. Si el comando falla a mitad de camino (un paso devuelve error, falla `flutter pub get`, `dart format` encuentra un error de sintaxis…), restaura todos esos archivos y avisa: «se deshicieron sus cambios en N archivos, el proyecto quedó como estaba». |
 | **`--dry-run`** | Simula el comando sin escribir nada y lista qué archivos crearía, modificaría o eliminaría, y qué comandos (`flutter pub get`, `dart format`…) ejecutaría. |
-| **Cambios sin commit** | `remove`, `rename`, `auth` y cualquier comando con `--force` se detienen si el repositorio git del proyecto tiene cambios sin commit, para que siempre puedas deshacer con git. `--allow-dirty` continúa igualmente. Si el proyecto no está en un repositorio git, solo muestra un aviso. |
+| **Cambios sin commit** | `remove`, `rename`, `auth`, `queue` y cualquier comando con `--force` se detienen si el repositorio git del proyecto tiene cambios sin commit, para que siempre puedas deshacer con git. `--allow-dirty` continúa igualmente. Si el proyecto no está en un repositorio git, solo muestra un aviso. |
 
 ```text
 $ flutter_clean_arch feature albums --dry-run
@@ -338,7 +341,7 @@ Crea la base del proyecto (64 archivos, ver [Estructura generada](#después-de-i
 
 #### Versiones de las dependencias
 
-`init` y `auth` no instalan «la última versión» de cada paquete, sino rangos probados con el test de punta a punta. Así, una versión nueva e incompatible de un paquete no rompe los proyectos que generes. Si el proyecto ya declara un paquete, se respeta su versión.
+`init`, `auth` y `queue` no instalan «la última versión» de cada paquete, sino rangos probados con el test de punta a punta. Así, una versión nueva e incompatible de un paquete no rompe los proyectos que generes. Si el proyecto ya declara un paquete, se respeta su versión.
 
 | Paquete | Versión | | Paquete (dev) | Versión |
 |---|---|---|---|---|
@@ -351,15 +354,19 @@ Crea la base del proyecto (64 archivos, ver [Estructura generada](#después-de-i
 | go_router | ^18.0.2 | | firebase_core | ^4.15.0 |
 | internet_connection_checker | ^3.0.1 | | firebase_auth | ^6.7.0 |
 | intl | ^0.20.2 | | google_sign_in | ^7.2.0 |
-| uuid | ^4.6.0 | | | |
+| uuid | ^4.6.0 | | **queue** | |
+| | | | sqflite | ^2.4.4+2 |
+| | | | path | ^1.9.1 |
+| | | | sqflite_common_ffi (dev) | ^2.4.4 |
 
-Para actualizar a una versión mayor en tu proyecto, cambia el rango en `pubspec.yaml`, ejecuta `flutter pub get` y luego `flutter analyze` y `flutter test`. Para actualizarla en la CLI, edita `initDependencies` (en `lib/src/commands/init_command.dart`) o `authDependencies` y ejecuta `dart test test_e2e`.
+Para actualizar a una versión mayor en tu proyecto, cambia el rango en `pubspec.yaml`, ejecuta `flutter pub get` y luego `flutter analyze` y `flutter test`. Para actualizarla en la CLI, edita `initDependencies` (en `lib/src/commands/init_command.dart`), `authDependencies` o `queueDependencies` y ejecuta `dart test test_e2e`.
 
 | Opción | Efecto |
 |---|---|
 | `-f`, `--force` | Sobrescribe los archivos que ya existan. Sin esta opción, si alguno existe, lista los conflictos y se detiene sin escribir nada. |
 | `--no-pub` | Solo crea los archivos: no agrega dependencias ni genera l10n. |
 | `--auth` | Agrega también la autenticación con Firebase, igual que [`auth`](#flutter_clean_arch-auth). |
+| `--queue` | Agrega también la cola de procesamiento offline, igual que [`queue`](#flutter_clean_arch-queue). Se puede combinar con `--auth`. |
 
 ```bash
 flutter_clean_arch init --force
@@ -418,6 +425,44 @@ Al terminar, la CLI muestra los siguientes pasos con los comandos exactos para t
 4. iOS: añadir el `REVERSED_CLIENT_ID` de cada `GoogleService-Info.plist` a `CFBundleURLTypes` en `ios/Runner/Info.plist`.
 
 Hasta completar el paso 2, la app compila, pero al arrancar lanza un error que indica qué comando de FlutterFire ejecutar.
+
+### `flutter_clean_arch queue`
+
+Agrega una cola de procesamiento offline (patrón *outbox*) a un proyecto inicializado. Para un proyecto nuevo, usa `init --queue`, que hace lo mismo. Funciona con o sin `auth`.
+
+Las operaciones que deben llegar a la API (crear, actualizar…) se guardan primero en una tabla SQLite junto con los datos locales, en la misma transacción. Un servicio las envía en orden de prioridad cuando hay conexión: al reconectar, al volver la app a primer plano y cada cierto tiempo. Cada envío lleva una clave de idempotencia (`Idempotency-Key`), `RetryPolicy` decide qué hacer con cada fallo (reintentar luego, detener la liberación o marcarlo con error) y los elementos que quedaron a medias al cerrar la app se recuperan al abrirla.
+
+Crea (182 archivos):
+- **`lib/core/database/`**: `AppDatabase` (sqflite), `FeatureSchema` (cada feature declara sus tablas y migraciones) y `UnitOfWork` (transacciones que abarcan varias tablas).
+- **`lib/core/queue_sync/`**: el contrato `QueueOutboxInter` con el que las features encolan, `QueueHandler` y `QueueHandlerRegistry` (qué envía cada tipo de operación), prioridades, estados y columnas de sincronización.
+- **`lib/core/widgets/`**: `QueueSyncStatusBadge`, el estado de sincronización de un registro.
+- **La feature `lib/features/processing_queue/`**: la tabla de la cola, `RetryPolicy`, `QueueSyncService`, 8 casos de uso (encolar, liberar, reintentar, purgar, recuperar, observar la cola y la conexión) y una página para ver y gestionar la cola.
+- **Dos features de ejemplo** que encolan sus operaciones: `transactions` (con dos handlers y archivos adjuntos) y `feedback` (el ejemplo más simple). Bórralas con `remove feature` cuando ya no las necesites y quita su schema de `AppDatabase.open`.
+- **Sus tests** (26 archivos), con helpers en `test/helpers/` (`FakeApi`, base de datos en memoria con `sqflite_common_ffi`) y un test de reglas de capas (`test/architecture/layer_rules_test.dart`).
+
+Modifica:
+
+| Archivo | Cambio |
+|---|---|
+| `core/api/api_client.dart` | `idempotencyHeader` y `send(method, path, idempotencyKey:, data:, files:, timeout:)`, que usa la cola (omite los archivos que ya no existen). `get`, `post`, `put` y `delete` se mantienen |
+| `core/di/injection_container.dart` | Registra `AppDatabase.open(schemas: [...])`, la misma instancia como `UnitOfWork`, y `QueueHandlerRegistry`; llama a `init<Feature>Dependencies()` de las tres features |
+| `lib/bootstrap.dart` | `await getIt<QueueSyncService>().start()` después del DI |
+| `core/router/app_routes.dart`, `app_router.dart` | Rutas `/processing_queue`, `/transactions` y `/feedback` |
+| `home/…/home_welcome.dart` | Botones a las tres páginas |
+| `test/helpers/helpers.dart` | Exporta los helpers de la cola |
+| `core/l10n/arb/app_en.arb`, `app_es.arb` | 50 claves (cola y ejemplos) |
+
+Además agrega `sqflite`, `path` y `sqflite_common_ffi` (dev) a `pubspec.yaml` y ejecuta `flutter pub get` y `flutter gen-l10n`. Como en `auth`, cada edición es idempotente y, si no encuentra el código esperado, muestra qué cambiar a mano.
+
+| Opción | Efecto |
+|---|---|
+| `-f`, `--force` | Reinstala la cola aunque ya exista (las ediciones ya hechas no se repiten). |
+| `--no-pub` | No agrega dependencias ni genera l10n. |
+
+Para enviar una operación propia por la cola:
+1. En la feature, guarda el registro y encola la operación con `QueueOutboxInter` dentro de la misma transacción (`UnitOfWork`), como `FeedbackRepositoryImpl`.
+2. Crea su `QueueHandler` en `data/queue_sync/` (qué endpoint llama y con qué datos) y regístralo en `QueueHandlerRegistry` desde `init<Feature>Dependencies()`, como `CreateFeedbackQueueHandler`.
+3. Si la feature guarda datos locales, agrega su `FeatureSchema` a `AppDatabase.open(...)`.
 
 ### `flutter_clean_arch feature <nombre>`
 
@@ -819,7 +864,7 @@ Los comandos insertan código justo antes de estos comentarios. No los borres:
 | «No existe lib/core/di/injection_container.dart» | Ejecuta primero `flutter_clean_arch init`. |
 | «La feature X no existe en lib/features» | Créala con `feature X` o revisa el nombre. |
 | «No se encontró "// flutter_clean_arch:…"» | Pega el código que muestra el comando, o restaura el marcador (ver [Marcadores](#marcadores)). `doctor` lista los que faltan. |
-| `auth`: «No se pudo editar … automáticamente» | Ese archivo ya no tiene el código que genera `init`. Aplica a mano el cambio que indica el mensaje. |
+| `auth` o `queue`: «No se pudo editar … automáticamente» | Ese archivo ya no tiene el código que genera `init`. Aplica a mano el cambio que indica el mensaje. |
 | La app con auth lanza «Firebase is not configured for the … flavor» | Falta ejecutar `flutterfire configure` para ese flavor (ver [`auth`](#flutter_clean_arch-auth)). |
 | Google Sign-In falla en Android con `ApiException: 10` | Faltan los SHA-1/SHA-256 de tu keystore en la app de Firebase. |
 | `remove`/`rename`: «Sin terminal interactiva» o «No se pudo leer la respuesta» | La consola no permite responder (scripts, CI o algunas terminales de Windows): revisa la lista con `--dry-run` y confirma con `--yes`. |

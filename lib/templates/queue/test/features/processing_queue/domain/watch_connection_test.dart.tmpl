@@ -1,0 +1,31 @@
+import 'dart:async';
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+void main() {
+  test('emits the current state and every change', () async {
+    final networkInfo = _MockNetworkInfo();
+    final changes = StreamController<bool>();
+    when(() => networkInfo.onStatusChange).thenAnswer((_) => changes.stream);
+    when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+
+    final emitted = WatchConnectionUseCaseImpl(
+      networkInfo: networkInfo,
+    )(const NoParams()).take(2).toList();
+    changes.add(true);
+
+    expect(await emitted, const [
+      Right<Failure, bool>(false),
+      Right<Failure, bool>(true),
+    ]);
+    await changes.close();
+  });
+}

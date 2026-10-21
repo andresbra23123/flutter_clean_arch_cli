@@ -1,0 +1,60 @@
+// ─────────────────────────────────────────────────────────────
+// UnitOfWork (contract)
+// Groups several local writes, possibly of different data sources,
+// into one atomic transaction. Repositories depend on this contract,
+// never on the database, so they stay free of SQL and sqflite.
+// Implemented by AppDatabase.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+
+/// Runs local writes atomically.
+abstract interface class UnitOfWork {
+  /// Runs [action] in one transaction: every local write made inside it,
+  /// by any data source, is committed together, or none is if [action]
+  /// throws. The error is rethrown.
+  ///
+  /// Calls nested in another [run] join the outer transaction.
+  Future<T> run<T>(Future<T> Function() action);
+
+  /// Runs [callback] once the current [run] commits, or right away when
+  /// there is none. Discarded if the transaction rolls back.
+  ///
+  /// Use it for side effects that must only see committed data, e.g.
+  /// sending what was just stored.
+  void afterCommit(void Function() callback);
+}
+
+/// [UnitOfWork.run] for repositories, which return [Either] instead of
+/// throwing.
+extension UnitOfWorkEither on UnitOfWork {
+  /// Runs [action] in one transaction and returns its result.
+  ///
+  /// A [Left] rolls back every write made before it, as an exception
+  /// would. A [CacheException] is rolled back and returned as a
+  /// [CacheFailure].
+  FutureEither<T> runEither<T>(FutureEither<T> Function() action) async {
+    try {
+      return await run(() async {
+        final result = await action();
+        return result.fold((failure) => throw _Rollback(failure), (_) {
+          return result;
+        });
+      });
+    } on _Rollback catch (rollback) {
+      return Left(rollback.failure);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+}
+
+/// Carries a [Failure] out of [UnitOfWork.run] so the transaction rolls
+/// back.
+class _Rollback implements Exception {
+  const _Rollback(this.failure);
+
+  final Failure failure;
+}

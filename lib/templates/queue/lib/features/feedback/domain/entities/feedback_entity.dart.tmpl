@@ -1,0 +1,77 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackEntity
+// A problem report written on the device. It reaches the API only
+// through the processing queue; syncStatus is the status of its
+// queue item.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// What a problem report is about.
+enum FeedbackCategory {
+  /// Something does not work.
+  bug('bug'),
+
+  /// An idea to improve the app.
+  suggestion('suggestion'),
+
+  /// A problem with a song, an artist or other content.
+  content('content'),
+
+  /// Anything else.
+  other('other');
+
+  const FeedbackCategory(this.code);
+
+  /// Stable value stored in the database and sent to the API. Never
+  /// change it once released.
+  final String code;
+
+  /// Category stored as [code]; [other] when it is unknown.
+  static FeedbackCategory fromCode(String code) => values.firstWhere(
+    (category) => category.code == code,
+    orElse: () => other,
+  );
+}
+
+/// Problem report as the domain layer sees it.
+class FeedbackEntity extends Equatable {
+  /// Creates the feedback entity.
+  const FeedbackEntity({
+    required this.id,
+    required this.category,
+    required this.description,
+    required this.createdAt,
+    required this.queueId,
+    this.syncStatus = QueueSyncStatus.incomplete,
+  });
+
+  /// Unique identifier (uuid).
+  final String id;
+
+  /// What the report is about.
+  final FeedbackCategory category;
+
+  /// Text written by the user.
+  final String description;
+
+  /// When the report was written.
+  final DateTime createdAt;
+
+  /// Id of the queue item that sends it to the API.
+  final String queueId;
+
+  /// Status of that queue item.
+  final QueueSyncStatus syncStatus;
+
+  @override
+  List<Object?> get props => [
+    id,
+    category,
+    description,
+    createdAt,
+    queueId,
+    syncStatus,
+  ];
+}

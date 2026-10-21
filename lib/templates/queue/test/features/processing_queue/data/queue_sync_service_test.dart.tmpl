@@ -1,0 +1,108 @@
+import 'dart:async';
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRecoverInterruptedItems extends Mock
+    implements RecoverInterruptedItemsUseCaseImpl {}
+
+class _MockPurgeDoneItems extends Mock implements PurgeDoneItemsUseCaseImpl {}
+
+class _MockReleaseQueue extends Mock implements ReleaseQueueUseCaseImpl {}
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+void main() {
+  late _MockRecoverInterruptedItems recoverInterruptedItems;
+  late _MockPurgeDoneItems purgeDoneItems;
+  late _MockReleaseQueue releaseQueue;
+  late _MockNetworkInfo networkInfo;
+  late StreamController<bool> connection;
+  late QueueSyncService service;
+
+  setUpAll(() {
+    registerFallbackValue(Duration.zero);
+    registerFallbackValue(const NoParams());
+  });
+
+  setUp(() {
+    recoverInterruptedItems = _MockRecoverInterruptedItems();
+    purgeDoneItems = _MockPurgeDoneItems();
+    releaseQueue = _MockReleaseQueue();
+    networkInfo = _MockNetworkInfo();
+    connection = StreamController<bool>.broadcast();
+    service = QueueSyncService(
+      recoverInterruptedItems: recoverInterruptedItems,
+      purgeDoneItems: purgeDoneItems,
+      releaseQueue: releaseQueue,
+      networkInfo: networkInfo,
+      retryInterval: const Duration(hours: 1),
+    );
+    when(
+      () => networkInfo.onStatusChange,
+    ).thenAnswer((_) => connection.stream);
+    when(
+      () => recoverInterruptedItems(any()),
+    ).thenAnswer((_) async => const Right<Failure, int>(0));
+    when(
+      () => purgeDoneItems(any()),
+    ).thenAnswer((_) async => const Right<Failure, int>(0));
+    when(() => releaseQueue(any())).thenAnswer(
+      (_) async => const Right<Failure, QueueReleaseResult>(
+        QueueReleaseResult(),
+      ),
+    );
+  });
+
+  tearDown(() async {
+    await service.stop();
+    await connection.close();
+  });
+
+  test(
+    'on start recovers interrupted items and releases when online',
+    () async {
+      when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+
+      await service.start(observeLifecycle: false);
+
+      verify(() => recoverInterruptedItems(any())).called(1);
+      verify(() => releaseQueue(any())).called(1);
+    },
+  );
+
+  test(
+    'offline at start: retains the queue until the connection is back',
+    () async {
+      when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+
+      await service.start(observeLifecycle: false);
+      verifyNever(() => releaseQueue(any()));
+
+      connection.add(false);
+      await pumpEventQueue();
+      verifyNever(() => releaseQueue(any()));
+
+      connection.add(true);
+      await pumpEventQueue();
+      verify(() => releaseQueue(any())).called(1);
+    },
+  );
+
+  test('stop stops listening to the connection', () async {
+    when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+    await service.start(observeLifecycle: false);
+
+    await service.stop();
+    connection.add(true);
+    await pumpEventQueue();
+
+    expect(service.isRunning, isFalse);
+    verifyNever(() => releaseQueue(any()));
+  });
+}

@@ -1,0 +1,51 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueRepositoryInter (contract)
+// Defines what the domain layer needs from the processing queue.
+// The domain depends only on this contract; the data layer
+// implements it in ProcessingQueueRepositoryImpl.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Processing queue repository contract. It is also the [QueueOutboxInter]
+/// the other features enqueue through.
+///
+/// Implementations never throw: every error is returned as a `Failure` on
+/// the left side of the `Either`.
+abstract interface class ProcessingQueueRepositoryInter
+    implements QueueOutboxInter {
+  /// Emits the whole queue (newest first) now and after every change, or
+  /// a `Failure` when it cannot be read.
+  StreamEither<List<QueueItemEntity>> watchQueue();
+
+  /// Stores a new item as [QueueSyncStatus.incomplete] and, when online,
+  /// releases the queue in the background.
+  FutureEither<QueueItemEntity> enqueueItem(EnqueueParams params);
+
+  /// Sends every [QueueSyncStatus.incomplete] item to the API in FIFO order.
+  ///
+  /// Only one release runs at a time: calling it while another one is
+  /// running returns the running one. Without a connection nothing is
+  /// sent and the items stay in the queue.
+  FutureEither<QueueReleaseResult> releaseQueue();
+
+  /// Moves the item [params] (its id) from [QueueSyncStatus.error] back to
+  /// [QueueSyncStatus.incomplete] with no attempts, and releases the queue.
+  FutureEither<Unit> retryQueueItem(String params);
+
+  /// Same as [retryQueueItem] for every item in [QueueSyncStatus.error].
+  /// Returns how many were moved.
+  FutureEither<int> retryFailedItems();
+
+  /// Deletes the [QueueSyncStatus.done] items processed more than [params]
+  /// ago. Returns how many were deleted.
+  FutureEither<int> purgeDoneItems(Duration params);
+
+  /// Moves the items left in [QueueSyncStatus.processing] (the app was closed
+  /// while sending them) back to [QueueSyncStatus.incomplete].
+  FutureEither<int> recoverInterruptedItems();
+  // flutter_clean_arch:repository-methods
+}

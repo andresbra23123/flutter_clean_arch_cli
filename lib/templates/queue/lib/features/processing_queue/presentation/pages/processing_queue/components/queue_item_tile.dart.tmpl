@@ -1,0 +1,79 @@
+// ─────────────────────────────────────────────────────────────
+// QueueItemTile
+// One row of the queue: operation, status, attempts, last error and a
+// retry button for the failed items.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/widgets/widgets.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+import 'package:{{package}}/features/processing_queue/presentation/presentation.dart';
+
+/// Shows a [QueueItemEntity].
+class QueueItemTile extends StatelessWidget {
+  /// Creates the tile for [item].
+  const QueueItemTile({required this.item, super.key});
+
+  /// Item to show.
+  final QueueItemEntity item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final textTheme = Theme.of(context).textTheme;
+    final created = DateFormat.yMd(
+      Localizations.localeOf(context).toString(),
+    ).add_Hms().format(item.createdAt);
+
+    return ListTile(
+      leading: Icon(
+        syncStatusIcon(item.status),
+        color: syncStatusColor(item.status),
+      ),
+      title: Text(item.operation),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(created, style: textTheme.bodySmall),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              QueueSyncStatusBadge(status: item.status),
+              if (item.attempts > 0)
+                Text(
+                  l10n.queueAttempts(item.attempts),
+                  style: textTheme.bodySmall,
+                ),
+            ],
+          ),
+          if (item.lastError != null && item.status != QueueSyncStatus.done)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                item.lastError!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(color: Colors.red),
+              ),
+            ),
+        ],
+      ),
+      isThreeLine: true,
+      trailing: item.status == QueueSyncStatus.error
+          ? IconButton(
+              tooltip: l10n.queueRetryItem,
+              icon: const Icon(Icons.replay),
+              onPressed: () => context.read<ProcessingQueueBloc>().add(
+                QueueItemRetryRequested(item.id),
+              ),
+            )
+          : null,
+    );
+  }
+}

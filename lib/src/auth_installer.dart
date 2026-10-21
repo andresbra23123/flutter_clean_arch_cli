@@ -3,9 +3,9 @@
 /// base files. Shared by `init --auth` and `auth`.
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_clean_arch/src/base_patch.dart';
 import 'package:flutter_clean_arch/src/dependencies.dart';
 import 'package:flutter_clean_arch/src/generator.dart';
 import 'package:flutter_clean_arch/src/injector.dart';
@@ -66,7 +66,7 @@ void applyAuthChanges(FlutterProject project, TemplateGenerator generator) {
   stdout.writeln('✓ ${files.length} archivos de auth creados.');
 
   _writeFirebaseStubs(project);
-  _mergeArb(project, generator.render('auth_l10n', vars));
+  mergeArb(project, generator.render('auth_l10n', vars), 'auth');
   for (final patch in _patches(project)) {
     patch.apply(project);
   }
@@ -101,98 +101,7 @@ abstract final class DefaultFirebaseOptions {
   }
 }
 
-/// Adds the auth keys to `app_en.arb` / `app_es.arb`, keeping the existing
-/// keys and their order.
-void _mergeArb(FlutterProject project, List<RenderedFile> authArbs) {
-  for (final arb in authArbs) {
-    final relative = 'lib/core/l10n/arb/${arb.relativePath}';
-    final source = readText(project.path(relative));
-    if (source == null) {
-      stderr.writeln(
-        '! No existe $relative: agrega a mano las claves de auth.',
-      );
-      continue;
-    }
-    final existing = jsonDecode(source) as Map<String, dynamic>;
-    final additions = jsonDecode(arb.content) as Map<String, dynamic>;
-    var added = 0;
-    additions.forEach((key, value) {
-      if (existing.containsKey(key)) return;
-      existing[key] = value;
-      if (!key.startsWith('@')) added++;
-    });
-    if (added == 0) {
-      stdout.writeln('• $relative ya tenía las claves de auth.');
-      continue;
-    }
-    writeText(
-      project.path(relative),
-      '${const JsonEncoder.withIndent('    ').convert(existing)}\n',
-    );
-    stdout.writeln('✓ $relative: $added claves de auth.');
-  }
-}
-
-/// An idempotent edit of a base file.
-class _Patch {
-  const _Patch(
-    this.relative,
-    this.description, {
-    required this.done,
-    required this.edit,
-    required this.manual,
-  });
-
-  final String relative;
-  final String description;
-
-  /// Whether the file already has the change.
-  final bool Function(String source) done;
-
-  /// The edited source, or `null` if the expected code was not found.
-  final String? Function(String source) edit;
-
-  /// What to change by hand when [edit] cannot.
-  final String manual;
-
-  void apply(FlutterProject project) {
-    final path = project.path(relative);
-    final source = readText(path);
-    if (source == null) {
-      stderr.writeln('! No existe $relative. Cambio a mano: $manual');
-      return;
-    }
-    if (done(source)) {
-      stdout.writeln('• $relative ya tenía: $description.');
-      return;
-    }
-    final eol = source.contains('\r\n') ? '\r\n' : '\n';
-    final result = edit(source.replaceAll('\r\n', '\n'));
-    if (result == null) {
-      stderr
-        ..writeln('! No se pudo editar $relative automáticamente.')
-        ..writeln('  Cambio a mano: $manual');
-      return;
-    }
-    writeText(path, result.replaceAll('\n', eol));
-    stdout.writeln('✓ $relative: $description.');
-  }
-}
-
-/// Index of the `)` that closes the `(` at [open].
-int _closingParen(String source, int open) {
-  var depth = 0;
-  for (var i = open; i < source.length; i++) {
-    if (source[i] == '(') depth++;
-    if (source[i] == ')') {
-      depth--;
-      if (depth == 0) return i;
-    }
-  }
-  return -1;
-}
-
-List<_Patch> _patches(FlutterProject project) {
+List<BasePatch> _patches(FlutterProject project) {
   final pkg = project.package;
   final authImport = "import 'package:$pkg/features/auth/auth.dart';";
   final diImport = "import 'package:$pkg/core/di/di.dart';";
@@ -200,7 +109,7 @@ List<_Patch> _patches(FlutterProject project) {
   const blocImport = "import 'package:flutter_bloc/flutter_bloc.dart';";
 
   return [
-    _Patch(
+    BasePatch(
       'lib/bootstrap.dart',
       'Firebase.initializeApp con las opciones del flavor',
       done: (s) => s.contains('Firebase.initializeApp'),
@@ -235,7 +144,7 @@ List<_Patch> _patches(FlutterProject project) {
           'firebaseOptions)`.',
     ),
     for (final flavor in authFlavors)
-      _Patch(
+      BasePatch(
         'lib/main_$flavor.dart',
         'opciones de Firebase del flavor $flavor',
         done: (s) => s.contains('firebaseOptionsFor('),
@@ -257,7 +166,7 @@ List<_Patch> _patches(FlutterProject project) {
             'pasa `firebaseOptions: firebaseOptionsFor(AppFlavor.$flavor)` '
             'a bootstrap.',
       ),
-    _Patch(
+    BasePatch(
       'lib/core/di/injection_container.dart',
       'initAuthDependencies con las opciones de Firebase',
       done: (s) => s.contains('initAuthDependencies('),
@@ -285,7 +194,7 @@ List<_Patch> _patches(FlutterProject project) {
           'initDependencies y llama a `await initAuthDependencies( '
           'firebaseOptions: firebaseOptions);`.',
     ),
-    _Patch(
+    BasePatch(
       'lib/core/router/app_routes.dart',
       'rutas de auth',
       done: (s) => s.contains('isAuthRoute('),
@@ -300,7 +209,7 @@ List<_Patch> _patches(FlutterProject project) {
           'agrega las constantes login/register/forgotPassword e '
           'isAuthRoute a AppRoutes.',
     ),
-    _Patch(
+    BasePatch(
       'lib/core/router/app_router.dart',
       'redirección según la sesión y rutas de auth',
       done: (s) => s.contains('_create(getIt<AuthBloc>())'),
@@ -332,7 +241,7 @@ List<_Patch> _patches(FlutterProject project) {
           'sesión, y agrega la ruta de LoginPage con register y '
           'forgot-password anidadas.',
     ),
-    _Patch(
+    BasePatch(
       'lib/app/pages/app.dart',
       'AuthBloc disponible para toda la app',
       done: (s) => s.contains('getIt<AuthBloc>()'),
@@ -340,7 +249,7 @@ List<_Patch> _patches(FlutterProject project) {
         const call = 'MaterialApp.router(';
         final at = s.indexOf(call);
         if (at == -1) return null;
-        final close = _closingParen(s, at + call.length - 1);
+        final close = closingParen(s, at + call.length - 1);
         if (close == -1) return null;
         final wrapped =
             '${s.substring(0, at)}'
@@ -357,7 +266,7 @@ List<_Patch> _patches(FlutterProject project) {
           'envuelve MaterialApp.router en `BlocProvider.value(value: '
           'getIt<AuthBloc>(), child: ...)`.',
     ),
-    _Patch(
+    BasePatch(
       'lib/features/home/presentation/pages/home/home_page.dart',
       'botón de cerrar sesión',
       done: (s) => s.contains('AuthSignOutRequested'),

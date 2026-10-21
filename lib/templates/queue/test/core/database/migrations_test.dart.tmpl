@@ -1,0 +1,118 @@
+// Tests of the real migrations (core + the schema of every feature):
+// the final schema is the one the Columns classes describe, and its
+// constraints reject invalid rows.
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/helpers.dart';
+
+void main() {
+  late AppDatabase database;
+
+  setUp(() async => database = await openTestDatabase());
+
+  tearDown(() => database.close());
+
+  Future<List<String>> columnsOf(String table) async {
+    final rows = await database.db.rawQuery('PRAGMA table_info($table)');
+    return [for (final row in rows) row['name']! as String];
+  }
+
+  Map<String, Object?> queueRow(
+    String id, {
+    String status = 'incomplete',
+    int attempts = 0,
+  }) => {
+    QueueColumns.id: id,
+    QueueColumns.operation: 'transaction.create',
+    QueueColumns.payload: '{}',
+    QueueColumns.status: status,
+    QueueColumns.attempts: attempts,
+    QueueColumns.createdAt: 1000,
+    QueueColumns.updatedAt: 1000,
+  };
+
+  Map<String, Object?> transactionRow(String id, {required String queueId}) => {
+    TransactionColumns.id: id,
+    TransactionColumns.workId: 1,
+    TransactionColumns.status: 'delivery',
+    TransactionColumns.createdAt: 1000,
+    TransactionColumns.queueId: queueId,
+  };
+
+  test('the migrated schema is the one the Columns classes describe', () async {
+    final expected = {
+      QueueColumns.tableName: QueueColumns.all,
+      TransactionColumns.tableName: TransactionColumns.all,
+      FeedbackColumns.tableName: FeedbackColumns.all,
+      SchemaVersionColumns.tableName: [
+        SchemaVersionColumns.feature,
+        SchemaVersionColumns.version,
+      ],
+    };
+    for (final MapEntry(key: table, value: columns) in expected.entries) {
+      expect(await columnsOf(table), columns, reason: table);
+    }
+
+    final tables = await database.db.query(
+      'sqlite_master',
+      columns: ['name'],
+      where:
+          "type = 'table' AND name NOT LIKE 'sqlite_%' "
+          "AND name != 'android_metadata'",
+    );
+    expect(
+      tables.map((row) => row['name']),
+      unorderedEquals(expected.keys),
+      reason: 'every table must have its Columns class',
+    );
+  });
+
+  test('every feature schema is recorded with its version', () async {
+    final rows = await database.db.query(SchemaVersionColumns.tableName);
+
+    expect(
+      {
+        for (final row in rows)
+          row[SchemaVersionColumns.feature]: row[SchemaVersionColumns.version],
+      },
+      {for (final schema in appSchemas) schema.name: schema.version},
+    );
+  });
+
+  test('the queue accepts every status of the app', () async {
+    for (final status in ['incomplete', 'processing', 'done', 'error']) {
+      await QueueTable.insert(database.db, queueRow(status, status: status));
+    }
+
+    expect(await QueueTable.findAll(database.db), hasLength(4));
+  });
+
+  test('the queue rejects an unknown status or negative attempts', () async {
+    await expectLater(
+      QueueTable.insert(database.db, queueRow('a', status: 'sent')),
+      throwsA(isA<DatabaseException>()),
+    );
+    await expectLater(
+      QueueTable.insert(database.db, queueRow('b', attempts: -1)),
+      throwsA(isA<DatabaseException>()),
+    );
+  });
+
+  test('a queue item belongs to a single transaction', () async {
+    await TransactionTable.insert(
+      database.db,
+      transactionRow('t1', queueId: 'q'),
+    );
+
+    await expectLater(
+      TransactionTable.insert(database.db, transactionRow('t2', queueId: 'q')),
+      throwsA(isA<DatabaseException>()),
+    );
+  });
+}

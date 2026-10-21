@@ -1,0 +1,150 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsRepositoryImpl
+// Implements the domain repository contract. Every new transaction is
+// stored locally and added to the processing queue with the operation
+// of its endpoint (store or client); the queue sends it when there is
+// a connection (see the handlers in data/queue_sync/).
+// ─────────────────────────────────────────────────────────────
+
+// Only the contract: the repository never sees the database.
+import 'package:{{package}}/core/database/unit_of_work.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// [TransactionsRepositoryInter] implementation on top of the device and
+/// the processing queue.
+class TransactionsRepositoryImpl implements TransactionsRepositoryInter {
+  /// Creates the repository with its data source and the queue.
+  TransactionsRepositoryImpl({
+    required this.localDataSource,
+    required this.outbox,
+    required this.unitOfWork,
+    this.ids = const UuidIdGenerator(),
+    this.clock = const SystemClock(),
+  });
+
+  /// Stores the transactions on the device.
+  final TransactionsLocalDataSourceInter localDataSource;
+
+  /// Processing queue that sends the transactions to the API.
+  final QueueOutboxInter outbox;
+
+  /// Stores a transaction and its queue item atomically.
+  final UnitOfWork unitOfWork;
+
+  /// Creates the ids of the new records and their queue items.
+  final IdGeneratorInter ids;
+
+  /// Tells when a record is created.
+  final ClockInter clock;
+
+  // ── Local ───────────────────────────────────────────────────
+
+  @override
+  // Explicit type: the Right must hold entities, not models.
+  StreamEither<List<TransactionEntity>> watchTransactions() =>
+      StreamEitherX<List<TransactionEntity>>(
+        localDataSource.watchAll(),
+      ).toEither(_cacheFailure);
+
+  // ── Queued: stored now, sent later by the queue ─────────────
+
+  @override
+  FutureEither<TransactionEntity> createTransaction(
+    CreateTransactionParams params,
+  ) {
+    final now = clock.now();
+    return _record(
+      TransactionModel(
+        id: ids.next(),
+        workId: params.workId,
+        status: params.status,
+        createdAt: now,
+        queueId: ids.next(),
+        summaryId: params.summaryId,
+        workcode: params.workcode,
+        orderNumber: params.orderNumber,
+        expedition: params.expedition,
+        payments: params.payments,
+        delivery: params.delivery,
+        observation: params.observation,
+        images: params.images,
+        firm: params.firm,
+        operativeCenter: params.operativeCenter,
+        start: params.start,
+        end: params.end ?? now,
+        latitude: params.latitude,
+        longitude: params.longitude,
+      ),
+      operation: StoreTransactionQueueHandler.code,
+    );
+  }
+
+  @override
+  FutureEither<TransactionEntity> startTransaction(RouteEventParams params) {
+    final now = clock.now();
+    return _record(
+      _routeEvent(params, TransactionStatus.start, now, start: now),
+      operation: ClientTransactionQueueHandler.startCode,
+    );
+  }
+
+  @override
+  FutureEither<TransactionEntity> endTransaction(RouteEventParams params) {
+    final now = clock.now();
+    return _record(
+      _routeEvent(params, TransactionStatus.end, now, end: now),
+      operation: ClientTransactionQueueHandler.endCode,
+    );
+  }
+
+  // flutter_clean_arch:repository-methods
+
+  // ── Helpers ─────────────────────────────────────────────────
+
+  TransactionModel _routeEvent(
+    RouteEventParams params,
+    TransactionStatus status,
+    DateTime now, {
+    DateTime? start,
+    DateTime? end,
+  }) => TransactionModel(
+    id: ids.next(),
+    workId: params.workId,
+    status: status,
+    createdAt: now,
+    queueId: ids.next(),
+    workcode: params.workcode,
+    operativeCenter: params.operativeCenter,
+    latitude: params.latitude,
+    longitude: params.longitude,
+    start: start,
+    end: end,
+  );
+
+  /// Stores [transaction] and enqueues it as [operation]: together or not
+  /// at all, since a transaction without its queue item would never be
+  /// sent. Always through the queue, with or without internet.
+  FutureEither<TransactionEntity> _record(
+    TransactionModel transaction, {
+    required String operation,
+  }) {
+    return unitOfWork.runEither(() async {
+      await localDataSource.insert(transaction);
+      final queued = await outbox.enqueue(
+        id: transaction.queueId,
+        operation: operation,
+        payload: transaction.toJson(),
+      );
+      return queued.map<TransactionEntity>((_) => transaction);
+    });
+  }
+
+  static Failure _cacheFailure(Object error) => CacheFailure(
+    message: error is CacheException ? error.message : '$error',
+  );
+}

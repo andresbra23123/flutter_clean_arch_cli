@@ -1,0 +1,14 @@
+/// Local SQLite database of the app: connection, core migrations, the
+/// FeatureSchema each feature declares and the UnitOfWork contract. The
+/// tables, names and queries of each feature live in the feature
+/// (data/datasources/local/database/).
+library;
+
+// The executor the table queries receive, so data sources do not import
+// sqflite themselves.
+export 'package:sqflite/sqflite.dart' show DatabaseExecutor;
+
+export 'app_database.dart';
+export 'feature_schema.dart';
+export 'migrations.dart';
+export 'unit_of_work.dart';

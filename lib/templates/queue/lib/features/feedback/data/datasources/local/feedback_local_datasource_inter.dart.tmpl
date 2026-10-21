@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackLocalDataSourceInter (contract)
+// Defines how the feedback feature reads and writes data on the device.
+// The repository depends on this contract, never on the implementation,
+// so the storage technology can change without touching other layers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+
+/// Local storage contract for the feedback feature.
+///
+/// Implementations throw a [CacheException] when the storage fails. The
+/// repository catches it and converts it into a `CacheFailure`.
+abstract interface class FeedbackLocalDataSourceInter {
+  /// Emits every report (newest first) with the status of its queue item,
+  /// now and after every change of the reports or the queue.
+  Stream<List<FeedbackModel>> watchAll();
+
+  /// Stores [feedback].
+  ///
+  /// Run it in the same UnitOfWork as the enqueue of its queue item, so
+  /// both are stored together or not at all.
+  Future<void> insert(FeedbackModel feedback);
+}

@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// Core migrations
+// Schema changes of core itself, versioned in `PRAGMA user_version`.
+// The tables of the features are NOT here: each feature owns its
+// FeatureSchema
+// (data/datasources/local/database/<feature>_schema.dart), and
+// AppDatabase runs them after these, versioned in `schema_versions`.
+//
+// Same rules as the feature migrations (see feature_schema.dart): never
+// edit a released one, append a new one, literal SQL, no
+// `IF NOT EXISTS`.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/feature_schema.dart';
+import 'package:sqflite/sqflite.dart';
+
+/// Every migration of core. Position + 1 is the `user_version`.
+const List<Migration> coreMigrations = [_v1];
+
+/// Table and columns of `schema_versions`: the version of each feature
+/// schema already applied on the device.
+abstract final class SchemaVersionColumns {
+  /// Table name.
+  static const String tableName = 'schema_versions';
+
+  /// `FeatureSchema.name`.
+  static const String feature = 'feature';
+
+  /// Number of its migrations already run.
+  static const String version = 'version';
+}
+
+/// v1: the version of every feature schema.
+Future<void> _v1(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE schema_versions (
+      feature TEXT PRIMARY KEY,
+      version INTEGER NOT NULL CHECK (version >= 0)
+    )
+  ''');
+}

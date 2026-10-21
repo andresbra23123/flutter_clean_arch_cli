@@ -1,0 +1,34 @@
+// ─────────────────────────────────────────────────────────────
+// QueueSyncColumns
+// How a feature READS the status of its records: each record stores the
+// id of its queue item and joins the processing_queue table with these
+// names. They are a stable contract; the rest of the table belongs to
+// the processing_queue feature.
+// ─────────────────────────────────────────────────────────────
+
+/// Names to join a table with the processing queue.
+abstract final class QueueSyncColumns {
+  /// Name of the processing queue table.
+  static const String queueTable = 'processing_queue';
+
+  /// Primary key of a queue item (uuid). A record stores it to point to
+  /// the item that sends it.
+  static const String queueId = 'id';
+
+  /// Status of a queue item, stored with `QueueSyncStatusDb.toDb`.
+  static const String queueStatus = 'status';
+
+  /// Alias of the queue item status in a joined row. `null` when the item
+  /// was already purged from the queue (it was sent).
+  static const String status = 'sync_status';
+
+  /// `SELECT` expression that adds [status] to a row joined with
+  /// [syncStatusJoin]:
+  /// `SELECT $table.*, ${syncStatusSelect()} FROM $table ${syncStatusJoin(...)}`.
+  static String syncStatusSelect() => '$queueTable.$queueStatus AS $status';
+
+  /// `LEFT JOIN` of [table] with its queue item, which [queueIdColumn]
+  /// points to. Rows whose item was purged keep a `null` [status].
+  static String syncStatusJoin(String table, String queueIdColumn) =>
+      'LEFT JOIN $queueTable ON $queueTable.$queueId = $table.$queueIdColumn';
+}

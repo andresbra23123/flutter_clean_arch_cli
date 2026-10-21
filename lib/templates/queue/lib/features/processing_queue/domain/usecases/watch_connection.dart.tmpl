@@ -1,0 +1,33 @@
+// ─────────────────────────────────────────────────────────────
+// WatchConnectionUseCase
+// Streams whether the device is online as Either (UseCaseInterStream).
+// The connection is not data of the queue, so it reads the
+// NetworkInfoInter contract of core instead of the queue repository.
+// Called from a BLoC; the UI never calls the data layer directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+// Only the contract: the domain never sees the connectivity package.
+import 'package:{{package}}/core/network/network_info_inter.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+
+/// Streams whether the device is online.
+class WatchConnectionUseCaseImpl implements UseCaseInterStream<bool, NoParams> {
+  /// Creates the use case with the [networkInfo] it reads from.
+  WatchConnectionUseCaseImpl({required this.networkInfo});
+
+  /// Tells whether the device is online.
+  final NetworkInfoInter networkInfo;
+
+  /// Emits the connection state now and after every change, or a
+  /// [NetworkFailure] when it cannot be read.
+  @override
+  StreamEither<bool> call(NoParams params) =>
+      _connection().toEither((error) => NetworkFailure(message: '$error'));
+
+  Stream<bool> _connection() async* {
+    yield await networkInfo.isConnected;
+    yield* networkInfo.onStatusChange;
+  }
+}

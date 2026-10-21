@@ -1,0 +1,12 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackEndpoints
+// Paths of the feedback API, relative to the base URL. The feature owns
+// them: core/api knows no feature.
+// ─────────────────────────────────────────────────────────────
+
+/// Paths of the feedback API.
+abstract final class FeedbackEndpoints {
+  /// POST: a problem report. Sent by the processing queue, through
+  /// `FeedbackRemoteDataSourceInter.sendFeedback`.
+  static const String create = '/feedback';
+}

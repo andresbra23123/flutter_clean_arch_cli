@@ -1,0 +1,79 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackBloc
+// Connects the feedback use cases with the UI.
+// Receives events → calls use cases → emits states.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+part 'feedback_event.dart';
+part 'feedback_state.dart';
+
+/// Manages the state of the feedback screen.
+///
+/// Created by get_it as a factory (see `feedback_injection.dart`), so every
+/// screen gets its own instance.
+class FeedbackBloc extends Bloc<FeedbackEvent, FeedbackState> {
+  /// Creates the BLoC in the loading state.
+  FeedbackBloc({
+    required this._watchFeedback,
+    required this._sendFeedback,
+  }) : super(const FeedbackState()) {
+    on<FeedbackSubscriptionRequested>(_onSubscriptionRequested);
+    on<FeedbackSendRequested>(_onSendRequested);
+  }
+
+  // Private: the UI must talk to the BLoC through events, never by
+  // calling its use cases directly.
+  final WatchFeedbackUseCaseImpl _watchFeedback;
+  final SendFeedbackUseCaseImpl _sendFeedback;
+
+  /// Follows the reports until the BLoC is closed.
+  Future<void> _onSubscriptionRequested(
+    FeedbackSubscriptionRequested event,
+    Emitter<FeedbackState> emit,
+  ) {
+    // Only when retrying: the initial state is already loading.
+    if (state.status != FeedbackViewStatus.loading) {
+      emit(state.copyWith(status: FeedbackViewStatus.loading));
+    }
+    return emit.forEach<EitherOr<List<FeedbackEntity>>>(
+      _watchFeedback(const NoParams()),
+      onData: (result) => result.fold(
+        (failure) => state.copyWith(
+          status: FeedbackViewStatus.failure,
+          failureMessage: () => failure.message,
+        ),
+        (items) => state.copyWith(
+          status: FeedbackViewStatus.ready,
+          items: items,
+        ),
+      ),
+    );
+  }
+
+  /// Stores the report in the processing queue.
+  Future<void> _onSendRequested(
+    FeedbackSendRequested event,
+    Emitter<FeedbackState> emit,
+  ) async {
+    // Clear the previous result, so the same message can show again.
+    if (state.lastSent != null || state.failureMessage != null) {
+      emit(state.copyWith(lastSent: () => null, failureMessage: () => null));
+    }
+    final result = await _sendFeedback(
+      SendFeedbackParams(
+        category: event.category,
+        description: event.description,
+      ),
+    );
+    result.fold(
+      (failure) => emit(state.copyWith(failureMessage: () => failure.message)),
+      (feedback) => emit(state.copyWith(lastSent: () => feedback)),
+    );
+  }
+}

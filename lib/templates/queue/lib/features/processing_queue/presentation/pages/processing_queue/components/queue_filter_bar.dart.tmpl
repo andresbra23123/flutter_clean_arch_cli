@@ -1,0 +1,53 @@
+// ─────────────────────────────────────────────────────────────
+// QueueFilterBar
+// Chips to filter the queue by status, with the count of each one.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/widgets/widgets.dart';
+import 'package:{{package}}/features/processing_queue/presentation/presentation.dart';
+
+/// Horizontal list of status filters.
+class QueueFilterBar extends StatelessWidget {
+  /// Creates the filter bar.
+  const QueueFilterBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<ProcessingQueueBloc>().state;
+    final bloc = context.read<ProcessingQueueBloc>();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          ChoiceChip(
+            label: Text(context.l10n.queueFilterAll(state.items.length)),
+            selected: state.filter == null,
+            onSelected: (_) => bloc.add(const QueueFilterChanged(null)),
+          ),
+          for (final status in QueueSyncStatus.values)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: ChoiceChip(
+                avatar: Icon(
+                  syncStatusIcon(status),
+                  size: 16,
+                  color: syncStatusColor(status),
+                ),
+                label: Text(
+                  '${syncStatusLabel(context.l10n, status)} '
+                  '(${state.countOf(status)})',
+                ),
+                selected: state.filter == status,
+                onSelected: (_) => bloc.add(QueueFilterChanged(status)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

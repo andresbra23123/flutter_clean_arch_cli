@@ -1,0 +1,157 @@
+// Tests of the SQL of the processing_queue table. The data source tests
+// cover the conversion to models, the statuses and the notifications.
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/helpers.dart';
+
+void main() {
+  late AppDatabase database;
+
+  Map<String, Object?> row(
+    String id, {
+    required int createdAt,
+    String status = 'incomplete',
+    int? processedAt,
+  }) => {
+    QueueColumns.id: id,
+    QueueColumns.operation: 'transaction.create',
+    QueueColumns.payload: '{}',
+    QueueColumns.status: status,
+    QueueColumns.createdAt: createdAt,
+    QueueColumns.updatedAt: createdAt,
+    QueueColumns.processedAt: processedAt,
+  };
+
+  Future<String?> statusOf(String id) async =>
+      (await QueueTable.findById(database.db, id))?[QueueColumns.status]
+          as String?;
+
+  setUp(() async {
+    database = await openTestDatabase();
+    for (final item in [
+      row('c', createdAt: 3000),
+      row('a', createdAt: 1000),
+      row('b', createdAt: 2000),
+      row('e', createdAt: 4000, status: 'error'),
+      row('f', createdAt: 5000, status: 'error'),
+      row('old', createdAt: 100, status: 'done', processedAt: 1000),
+      row('new', createdAt: 200, status: 'done', processedAt: 9000),
+    ]) {
+      await QueueTable.insert(database.db, item);
+    }
+  });
+
+  tearDown(() => database.close());
+
+  test('findAll returns every item, newest first', () async {
+    final rows = await QueueTable.findAll(database.db);
+    expect(rows.map((r) => r[QueueColumns.id]), [
+      'f',
+      'e',
+      'c',
+      'b',
+      'a',
+      'new',
+      'old',
+    ]);
+  });
+
+  test(
+    'findByStatus returns oldest first, with limit and exclusions',
+    () async {
+      final pending = await QueueTable.findByStatus(database.db, 'incomplete');
+      expect(pending.map((r) => r[QueueColumns.id]), ['a', 'b', 'c']);
+
+      final limited = await QueueTable.findByStatus(
+        database.db,
+        'incomplete',
+        limit: 2,
+        excludeIds: {'a'},
+      );
+      expect(limited.map((r) => r[QueueColumns.id]), ['b', 'c']);
+    },
+  );
+
+  test(
+    'findByStatus returns higher priorities first, FIFO within one',
+    () async {
+      for (final item in [
+        {...row('low', createdAt: 10), QueueColumns.priority: 0},
+        {...row('high-late', createdAt: 9000), QueueColumns.priority: 2},
+        {...row('high-early', createdAt: 20), QueueColumns.priority: 2},
+      ]) {
+        await QueueTable.insert(database.db, item);
+      }
+
+      final pending = await QueueTable.findByStatus(database.db, 'incomplete');
+
+      // a, b and c take the default priority (1, normal).
+      expect(pending.map((r) => r[QueueColumns.id]), [
+        'high-early',
+        'high-late',
+        'a',
+        'b',
+        'c',
+        'low',
+      ]);
+    },
+  );
+
+  test('countByStatus counts only that status', () async {
+    expect(await QueueTable.countByStatus(database.db, 'incomplete'), 3);
+    expect(await QueueTable.countByStatus(database.db, 'error'), 2);
+    expect(await QueueTable.countByStatus(database.db, 'processing'), 0);
+  });
+
+  test('update changes only the given item', () async {
+    final changed = await QueueTable.update(database.db, 'a', {
+      QueueColumns.status: 'processing',
+    });
+
+    expect(changed, 1);
+    expect(await statusOf('a'), 'processing');
+    expect(await statusOf('b'), 'incomplete');
+    expect(
+      await QueueTable.update(database.db, 'missing', {
+        QueueColumns.status: 'done',
+      }),
+      0,
+    );
+  });
+
+  test('updateByStatus changes that status, or only the given ids', () async {
+    final one = await QueueTable.updateByStatus(
+      database.db,
+      'error',
+      {QueueColumns.status: 'incomplete'},
+      ids: {'e', 'a'},
+    );
+    expect(one, 1, reason: '"a" is not in error');
+    expect(await statusOf('e'), 'incomplete');
+    expect(await statusOf('f'), 'error');
+
+    final rest = await QueueTable.updateByStatus(database.db, 'error', {
+      QueueColumns.status: 'incomplete',
+    });
+    expect(rest, 1);
+    expect(await statusOf('f'), 'incomplete');
+  });
+
+  test(
+    'deleteProcessedBefore deletes only older items of that status',
+    () async {
+      final deleted = await QueueTable.deleteProcessedBefore(
+        database.db,
+        'done',
+        DateTime.fromMillisecondsSinceEpoch(5000),
+      );
+
+      expect(deleted, 1);
+      expect(await statusOf('old'), isNull);
+      expect(await statusOf('new'), 'done');
+    },
+  );
+}

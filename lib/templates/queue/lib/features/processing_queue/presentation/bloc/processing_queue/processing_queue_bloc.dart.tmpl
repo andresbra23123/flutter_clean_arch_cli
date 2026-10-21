@@ -1,0 +1,143 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueBloc
+// Connects the processing queue use cases with the UI.
+// Receives events → calls use cases → emits states.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+part 'processing_queue_event.dart';
+part 'processing_queue_state.dart';
+
+/// Manages the state of the processing queue screen.
+///
+/// Created by get_it as a factory (see `processing_queue_injection.dart`),
+/// so every screen gets its own instance.
+class ProcessingQueueBloc
+    extends Bloc<ProcessingQueueEvent, ProcessingQueueState> {
+  /// Creates the BLoC in the loading state.
+  ProcessingQueueBloc({
+    required this._watchQueue,
+    required this._watchConnection,
+    required this._releaseQueue,
+    required this._retryQueueItem,
+    required this._retryFailedItems,
+    required this._purgeDoneItems,
+  }) : super(const ProcessingQueueState()) {
+    on<QueueSubscriptionRequested>(_onSubscriptionRequested);
+    on<QueueReleaseRequested>(_onReleaseRequested);
+    on<QueueItemRetryRequested>(_onItemRetryRequested);
+    on<QueueFailedRetryRequested>(_onFailedRetryRequested);
+    on<QueueDonePurgeRequested>(_onDonePurgeRequested);
+    on<QueueFilterChanged>(_onFilterChanged);
+  }
+
+  // Private: the UI must talk to the BLoC through events, never by
+  // calling its use cases directly.
+  final WatchQueueUseCaseImpl _watchQueue;
+  final WatchConnectionUseCaseImpl _watchConnection;
+  final ReleaseQueueUseCaseImpl _releaseQueue;
+  final RetryQueueItemUseCaseImpl _retryQueueItem;
+  final RetryFailedItemsUseCaseImpl _retryFailedItems;
+  final PurgeDoneItemsUseCaseImpl _purgeDoneItems;
+
+  /// Follows the queue and the connection until the BLoC is closed.
+  Future<void> _onSubscriptionRequested(
+    QueueSubscriptionRequested event,
+    Emitter<ProcessingQueueState> emit,
+  ) async {
+    await Future.wait([
+      emit.forEach<EitherOr<List<QueueItemEntity>>>(
+        _watchQueue(const NoParams()),
+        onData: (result) => result.fold(
+          (failure) => state.copyWith(
+            status: ProcessingQueueViewStatus.failure,
+            failureMessage: () => failure.message,
+          ),
+          (items) => state.copyWith(
+            status: ProcessingQueueViewStatus.ready,
+            items: items,
+          ),
+        ),
+      ),
+      emit.forEach<EitherOr<bool>>(
+        _watchConnection(const NoParams()),
+        onData: (result) => result.fold(
+          // Unknown connection: show it as offline.
+          (_) => state.copyWith(isConnected: false),
+          (connected) => state.copyWith(isConnected: connected),
+        ),
+      ),
+    ]);
+  }
+
+  Future<void> _onReleaseRequested(
+    QueueReleaseRequested event,
+    Emitter<ProcessingQueueState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        isReleasing: true,
+        releaseResult: () => null,
+        failureMessage: () => null,
+      ),
+    );
+    final result = await _releaseQueue(const NoParams());
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          isReleasing: false,
+          failureMessage: () => failure.message,
+        ),
+      ),
+      (summary) => emit(
+        state.copyWith(isReleasing: false, releaseResult: () => summary),
+      ),
+    );
+  }
+
+  Future<void> _onItemRetryRequested(
+    QueueItemRetryRequested event,
+    Emitter<ProcessingQueueState> emit,
+  ) async {
+    final result = await _retryQueueItem(event.id);
+    result.fold(
+      (failure) => emit(state.copyWith(failureMessage: () => failure.message)),
+      (_) {},
+    );
+  }
+
+  Future<void> _onFailedRetryRequested(
+    QueueFailedRetryRequested event,
+    Emitter<ProcessingQueueState> emit,
+  ) async {
+    final result = await _retryFailedItems(const NoParams());
+    result.fold(
+      (failure) => emit(state.copyWith(failureMessage: () => failure.message)),
+      (_) {},
+    );
+  }
+
+  Future<void> _onDonePurgeRequested(
+    QueueDonePurgeRequested event,
+    Emitter<ProcessingQueueState> emit,
+  ) async {
+    final result = await _purgeDoneItems(Duration.zero);
+    result.fold(
+      (failure) => emit(state.copyWith(failureMessage: () => failure.message)),
+      (_) {},
+    );
+  }
+
+  void _onFilterChanged(
+    QueueFilterChanged event,
+    Emitter<ProcessingQueueState> emit,
+  ) {
+    emit(state.copyWith(filter: () => event.filter));
+  }
+}

@@ -1,0 +1,224 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionModel
+// TransactionEntity plus its SQLite row mapping and the body the
+// processing queue sends to the API. Fields generated from the API
+// JSON by `flutter_clean_arch model`; the API format follows the
+// mobile app that already talks to /works/transactions (payments and
+// images as JSON strings, dates as yyyy-MM-dd HH:mm:ss).
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:convert';
+
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/data/datasources/local/database/transactions_table.dart';
+import 'package:{{package}}/features/transactions/data/models/payment_model.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// [TransactionEntity] with conversion to rows and JSON.
+class TransactionModel extends TransactionEntity {
+  /// Creates the transaction model.
+  const TransactionModel({
+    required super.id,
+    required super.workId,
+    required super.status,
+    required super.createdAt,
+    required super.queueId,
+    super.summaryId,
+    super.workcode,
+    super.orderNumber,
+    super.expedition,
+    super.payments,
+    super.delivery,
+    super.observation,
+    super.images,
+    super.firm,
+    super.operativeCenter,
+    super.start,
+    super.end,
+    super.latitude,
+    super.longitude,
+    super.syncStatus,
+  });
+
+  /// Creates a model from a [TransactionColumns] row joined with the
+  /// status of its queue item ([QueueSyncColumns.status]).
+  ///
+  /// Without a queue item (processed items are purged from the queue
+  /// after a while) the transaction was already sent: [QueueSyncStatus.done].
+  factory TransactionModel.fromRow(Map<String, Object?> row) {
+    final syncStatus = row[QueueSyncColumns.status] as String?;
+    return TransactionModel(
+      id: row[TransactionColumns.id]! as String,
+      workId: row[TransactionColumns.workId]! as int,
+      // An unknown status (stored by a newer version) is shown as a
+      // delivery rather than dropping the row.
+      status:
+          TransactionStatus.fromCode(
+            row[TransactionColumns.status]! as String,
+          ) ??
+          TransactionStatus.delivery,
+      createdAt: _date(row[TransactionColumns.createdAt])!,
+      queueId: row[TransactionColumns.queueId]! as String,
+      summaryId: row[TransactionColumns.summaryId] as int?,
+      workcode: row[TransactionColumns.workcode] as String?,
+      orderNumber: row[TransactionColumns.orderNumber] as String?,
+      expedition: row[TransactionColumns.expedition] as String?,
+      payments: _payments(row[TransactionColumns.payments]),
+      delivery: row[TransactionColumns.delivery] as String?,
+      observation: row[TransactionColumns.observation] as String?,
+      images: _strings(row[TransactionColumns.images]),
+      firm: row[TransactionColumns.firm] as String?,
+      operativeCenter: row[TransactionColumns.operativeCenter] as String?,
+      start: _date(row[TransactionColumns.startedAt]),
+      end: _date(row[TransactionColumns.endedAt]),
+      latitude: row[TransactionColumns.latitude] as String?,
+      longitude: row[TransactionColumns.longitude] as String?,
+      syncStatus: syncStatus == null
+          ? QueueSyncStatus.done
+          : queueSyncStatusFromDb(syncStatus),
+    );
+  }
+
+  /// Creates a [TransactionModel] with the values of [entity].
+  factory TransactionModel.fromEntity(TransactionEntity entity) {
+    return TransactionModel(
+      id: entity.id,
+      workId: entity.workId,
+      status: entity.status,
+      createdAt: entity.createdAt,
+      queueId: entity.queueId,
+      summaryId: entity.summaryId,
+      workcode: entity.workcode,
+      orderNumber: entity.orderNumber,
+      expedition: entity.expedition,
+      payments: entity.payments,
+      delivery: entity.delivery,
+      observation: entity.observation,
+      images: entity.images,
+      firm: entity.firm,
+      operativeCenter: entity.operativeCenter,
+      start: entity.start,
+      end: entity.end,
+      latitude: entity.latitude,
+      longitude: entity.longitude,
+      syncStatus: entity.syncStatus,
+    );
+  }
+
+  /// Converts this model into a [TransactionColumns] row.
+  Map<String, Object?> toRow() {
+    return {
+      TransactionColumns.id: id,
+      TransactionColumns.workId: workId,
+      TransactionColumns.status: status.code,
+      TransactionColumns.summaryId: summaryId,
+      TransactionColumns.workcode: workcode,
+      TransactionColumns.orderNumber: orderNumber,
+      TransactionColumns.expedition: expedition,
+      TransactionColumns.payments: _encodePayments(payments),
+      TransactionColumns.delivery: delivery,
+      TransactionColumns.observation: observation,
+      TransactionColumns.images: jsonEncode(images),
+      TransactionColumns.firm: firm,
+      TransactionColumns.operativeCenter: operativeCenter,
+      TransactionColumns.startedAt: start?.millisecondsSinceEpoch,
+      TransactionColumns.endedAt: end?.millisecondsSinceEpoch,
+      TransactionColumns.latitude: latitude,
+      TransactionColumns.longitude: longitude,
+      TransactionColumns.createdAt: createdAt.millisecondsSinceEpoch,
+      TransactionColumns.queueId: queueId,
+    };
+  }
+
+  /// Body sent to the API by the processing queue. Flat, with lists as
+  /// JSON strings, so it also works as the fields of a multipart form.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'work_id': workId,
+      'summary_id': summaryId,
+      'workcode': workcode,
+      'order_number': orderNumber,
+      'expedition': expedition,
+      'status': status.code,
+      'payments': _encodePayments(payments),
+      'delivery': delivery,
+      'observation': observation,
+      'images': jsonEncode(images),
+      'firm': firm,
+      'operative_center': operativeCenter,
+      'start': start == null ? null : ApiDateFormat.format(start!),
+      'end': end == null ? null : ApiDateFormat.format(end!),
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+  }
+
+  /// Column values of the server copy of a transaction ([json], as the
+  /// API returns it), to update the local row. Only the keys present in
+  /// [json] are returned, so a partial answer keeps the other values; the
+  /// id, the queue item and the creation time are never taken from it.
+  static Map<String, Object?> rowFromServerJson(Map<String, dynamic> json) {
+    final row = <String, Object?>{};
+    void put(String key, String column, Object? Function(Object?) read) {
+      if (json.containsKey(key)) row[column] = read(json[key]);
+    }
+
+    String? text(Object? value) => value?.toString();
+    int? number(Object? value) =>
+        value is int ? value : int.tryParse('${value ?? ''}');
+    int? millis(Object? value) =>
+        ApiDateFormat.tryParse(value)?.millisecondsSinceEpoch;
+
+    put('work_id', TransactionColumns.workId, number);
+    put('summary_id', TransactionColumns.summaryId, number);
+    put('workcode', TransactionColumns.workcode, text);
+    put('order_number', TransactionColumns.orderNumber, text);
+    put('expedition', TransactionColumns.expedition, text);
+    put(
+      'payments',
+      TransactionColumns.payments,
+      (value) => _encodePayments(_payments(value)),
+    );
+    put('delivery', TransactionColumns.delivery, text);
+    put('observation', TransactionColumns.observation, text);
+    put('images', TransactionColumns.images, (v) => jsonEncode(_strings(v)));
+    put('firm', TransactionColumns.firm, text);
+    put('operative_center', TransactionColumns.operativeCenter, text);
+    put('start', TransactionColumns.startedAt, millis);
+    put('end', TransactionColumns.endedAt, millis);
+    put('latitude', TransactionColumns.latitude, text);
+    put('longitude', TransactionColumns.longitude, text);
+    // A work id is required: never null it out.
+    if (row[TransactionColumns.workId] == null) {
+      row.remove(TransactionColumns.workId);
+    }
+    return row;
+  }
+
+  static String _encodePayments(List<PaymentEntity> payments) => jsonEncode(
+    payments.map((p) => PaymentModel.fromEntity(p).toJson()).toList(),
+  );
+
+  /// Payments stored or sent as a JSON string or as a list.
+  static List<PaymentEntity> _payments(Object? value) => _list(
+    value,
+  ).whereType<Map<String, dynamic>>().map(PaymentModel.fromJson).toList();
+
+  /// Strings stored or sent as a JSON string or as a list.
+  static List<String> _strings(Object? value) =>
+      _list(value).map((e) => '$e').toList();
+
+  static List<Object?> _list(Object? value) {
+    if (value is List) return value;
+    if (value is String && value.isNotEmpty && value != 'null') {
+      final decoded = jsonDecode(value);
+      if (decoded is List) return decoded;
+    }
+    return const [];
+  }
+
+  static DateTime? _date(Object? millis) =>
+      millis is int ? DateTime.fromMillisecondsSinceEpoch(millis) : null;
+}

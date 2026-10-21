@@ -1,0 +1,96 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRepository extends Mock implements FeedbackRepositoryInter {}
+
+void main() {
+  late _MockRepository repository;
+  late SendFeedbackUseCaseImpl sendFeedback;
+
+  final stored = FeedbackEntity(
+    id: 'fb-1',
+    category: FeedbackCategory.bug,
+    description: 'La app se cierra',
+    createdAt: DateTime(2026),
+    queueId: 'q-1',
+  );
+
+  setUpAll(() {
+    registerFallbackValue(
+      const SendFeedbackParams(category: FeedbackCategory.bug, description: ''),
+    );
+  });
+
+  setUp(() {
+    repository = _MockRepository();
+    sendFeedback = SendFeedbackUseCaseImpl(repository: repository);
+    when(
+      () => repository.sendFeedback(any()),
+    ).thenAnswer((_) async => Right(stored));
+  });
+
+  ValidationFailure? validationOf(Either<Failure, FeedbackEntity> result) =>
+      result.fold((failure) => failure as ValidationFailure, (_) => null);
+
+  test('passes the description trimmed to the repository', () async {
+    final result = await sendFeedback(
+      const SendFeedbackParams(
+        category: FeedbackCategory.bug,
+        description: '  La app se cierra  ',
+      ),
+    );
+
+    expect(result, Right<Failure, FeedbackEntity>(stored));
+    verify(
+      () => repository.sendFeedback(
+        const SendFeedbackParams(
+          category: FeedbackCategory.bug,
+          description: 'La app se cierra',
+        ),
+      ),
+    ).called(1);
+  });
+
+  test('rejects a description shorter than the minimum', () async {
+    // Long enough untrimmed, too short trimmed.
+    final result = await sendFeedback(
+      const SendFeedbackParams(
+        category: FeedbackCategory.bug,
+        description: '   corta      ',
+      ),
+    );
+
+    expect(validationOf(result)?.code, FeedbackErrorCodes.descriptionTooShort);
+    verifyNever(() => repository.sendFeedback(any()));
+  });
+
+  test('rejects a description longer than the maximum', () async {
+    final result = await sendFeedback(
+      SendFeedbackParams(
+        category: FeedbackCategory.bug,
+        description: 'x' * (SendFeedbackUseCaseImpl.maxDescriptionLength + 1),
+      ),
+    );
+
+    expect(validationOf(result)?.code, FeedbackErrorCodes.descriptionTooLong);
+    verifyNever(() => repository.sendFeedback(any()));
+  });
+
+  test('accepts the limits themselves', () async {
+    for (final length in [
+      SendFeedbackUseCaseImpl.minDescriptionLength,
+      SendFeedbackUseCaseImpl.maxDescriptionLength,
+    ]) {
+      final result = await sendFeedback(
+        SendFeedbackParams(
+          category: FeedbackCategory.other,
+          description: 'x' * length,
+        ),
+      );
+      expect(result.isRight(), isTrue, reason: 'length $length');
+    }
+  });
+}

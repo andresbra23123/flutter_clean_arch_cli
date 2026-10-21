@@ -1,0 +1,49 @@
+import 'package:{{package}}/core/api/api.dart';
+import 'package:dio/dio.dart';
+
+/// An [ApiClient] whose requests never leave the test: each one is
+/// recorded in [requests] and answered locally with [answer] (status 200),
+/// or failed with a [DioException] of type [fail] when it is set.
+class FakeApi {
+  /// Creates the fake API; it answers [answer] until changed.
+  FakeApi({this.answer}) {
+    client.dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests.add(options);
+          final type = fail;
+          if (type == null) {
+            return handler.resolve(
+              Response(requestOptions: options, statusCode: 200, data: answer),
+            );
+          }
+          final response = type == DioExceptionType.badResponse
+              ? Response<dynamic>(requestOptions: options, statusCode: status)
+              : null;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: type,
+              response: response,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Client to give to the data source under test.
+  final ApiClient client = ApiClient();
+
+  /// Every request sent, in order.
+  final List<RequestOptions> requests = [];
+
+  /// Body of every successful answer.
+  Object? answer;
+
+  /// When set, every request fails with this type.
+  DioExceptionType? fail;
+
+  /// Status code of a [DioExceptionType.badResponse] failure.
+  int status = 500;
+}

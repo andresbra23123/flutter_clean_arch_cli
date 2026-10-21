@@ -1,0 +1,132 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionFormDialog
+// Dialog to record a transaction: the start or end of a route, or the
+// result of an order (with its order number and observation).
+// Returns the event to dispatch, or null if cancelled. The rules are
+// the ones of the use cases, checked here too so the user sees them
+// before submitting.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+import 'package:{{package}}/features/transactions/presentation/presentation.dart';
+
+/// Form of a new transaction.
+class TransactionFormDialog extends StatefulWidget {
+  /// Creates the dialog.
+  const TransactionFormDialog({super.key});
+
+  /// Shows the dialog and returns the event to dispatch, or `null`.
+  static Future<TransactionsEvent?> show(BuildContext context) {
+    return showDialog<TransactionsEvent>(
+      context: context,
+      builder: (_) => const TransactionFormDialog(),
+    );
+  }
+
+  @override
+  State<TransactionFormDialog> createState() => _TransactionFormDialogState();
+}
+
+class _TransactionFormDialogState extends State<TransactionFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _workId = TextEditingController();
+  final _orderNumber = TextEditingController();
+  final _observation = TextEditingController();
+  TransactionStatus _status = TransactionStatus.delivery;
+
+  @override
+  void dispose() {
+    _workId.dispose();
+    _orderNumber.dispose();
+    _observation.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    final workId = int.parse(_workId.text.trim());
+    Navigator.of(context).pop(
+      _status.isRouteEvent
+          ? TransactionRouteEventRequested(workId: workId, status: _status)
+          : TransactionCreateRequested(
+              workId: workId,
+              status: _status,
+              orderNumber: _orderNumber.text,
+              observation: _observation.text,
+            ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.transactionsAdd),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<TransactionStatus>(
+                initialValue: _status,
+                decoration: InputDecoration(
+                  labelText: l10n.transactionStatusLabel,
+                ),
+                items: [
+                  for (final status in TransactionStatus.values)
+                    DropdownMenuItem(
+                      value: status,
+                      child: Text(transactionStatusLabel(l10n, status)),
+                    ),
+                ],
+                onChanged: (status) => setState(() => _status = status!),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _workId,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: l10n.transactionWorkIdLabel,
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (value) =>
+                    (int.tryParse(value?.trim() ?? '') ?? 0) > 0
+                    ? null
+                    : l10n.transactionErrorInvalidWork,
+              ),
+              if (!_status.isRouteEvent) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _orderNumber,
+                  decoration: InputDecoration(
+                    labelText: l10n.transactionOrderNumberLabel,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _observation,
+                  decoration: InputDecoration(
+                    labelText: l10n.transactionObservationLabel,
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.transactionCancel),
+        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.transactionSave)),
+      ],
+    );
+  }
+}

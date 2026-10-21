@@ -1,0 +1,159 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueLocalDataSourceImpl
+// Stores the processing queue through the QueueTable queries
+// (queue_table.dart). Every write goes through AppDatabase.write, which
+// notifies the change (watchAll stays live) and joins the current
+// UnitOfWork transaction. It writes no SQL itself.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/processing_queue/data/data.dart';
+
+/// [ProcessingQueueLocalDataSourceInter] implementation backed by SQLite.
+class ProcessingQueueLocalDataSourceImpl
+    implements ProcessingQueueLocalDataSourceInter {
+  /// Creates the data source on top of [database].
+  ProcessingQueueLocalDataSourceImpl({required this.database});
+
+  /// Database that holds the processing queue.
+  final AppDatabase database;
+
+  /// Returns the current time. Replaceable in tests.
+  DateTime Function() clock = DateTime.now;
+
+  @override
+  Stream<List<QueueItemModel>> watchAll() => database.watch(
+    {QueueColumns.tableName},
+    () => _read((db) async {
+      final rows = await QueueTable.findAll(db);
+      return rows.map(QueueItemModel.fromRow).toList();
+    }),
+  );
+
+  @override
+  Future<void> insert(QueueItemModel item) =>
+      _write((db) => QueueTable.insert(db, item.toRow()));
+
+  @override
+  Future<QueueItemModel?> getById(String id) => _read((db) async {
+    final row = await QueueTable.findById(db, id);
+    return row == null ? null : QueueItemModel.fromRow(row);
+  });
+
+  @override
+  Future<List<QueueItemModel>> fetchPending({
+    int limit = 50,
+    Set<String> excludeIds = const {},
+  }) => _read((db) async {
+    final rows = await QueueTable.findByStatus(
+      db,
+      QueueSyncStatus.incomplete.toDb(),
+      limit: limit,
+      excludeIds: excludeIds,
+    );
+    return rows.map(QueueItemModel.fromRow).toList();
+  });
+
+  @override
+  Future<int> countByStatus(QueueSyncStatus status) =>
+      _read((db) => QueueTable.countByStatus(db, status.toDb()));
+
+  @override
+  Future<void> markProcessing(String id) => _update(id, {
+    QueueColumns.status: QueueSyncStatus.processing.toDb(),
+  });
+
+  @override
+  Future<void> markDone(String id) => _update(id, {
+    QueueColumns.status: QueueSyncStatus.done.toDb(),
+    QueueColumns.lastError: null,
+    QueueColumns.processedAt: clock().millisecondsSinceEpoch,
+  });
+
+  @override
+  Future<void> markIncomplete(
+    String id, {
+    required int attempts,
+    required String error,
+  }) => _update(id, {
+    QueueColumns.status: QueueSyncStatus.incomplete.toDb(),
+    QueueColumns.attempts: attempts,
+    QueueColumns.lastError: error,
+  });
+
+  @override
+  Future<void> markError(
+    String id, {
+    required int attempts,
+    required String error,
+  }) => _update(id, {
+    QueueColumns.status: QueueSyncStatus.error.toDb(),
+    QueueColumns.attempts: attempts,
+    QueueColumns.lastError: error,
+  });
+
+  @override
+  Future<int> resetFailed({Set<String>? ids}) => _write(
+    (db) => QueueTable.updateByStatus(
+      db,
+      QueueSyncStatus.error.toDb(),
+      {
+        QueueColumns.status: QueueSyncStatus.incomplete.toDb(),
+        QueueColumns.attempts: 0,
+        QueueColumns.lastError: null,
+        QueueColumns.updatedAt: clock().millisecondsSinceEpoch,
+      },
+      ids: ids,
+    ),
+  );
+
+  @override
+  Future<int> resetProcessing() => _write(
+    (db) => QueueTable.updateByStatus(
+      db,
+      QueueSyncStatus.processing.toDb(),
+      {
+        QueueColumns.status: QueueSyncStatus.incomplete.toDb(),
+        QueueColumns.updatedAt: clock().millisecondsSinceEpoch,
+      },
+    ),
+  );
+
+  @override
+  Future<int> deleteDone({required DateTime before}) => _write(
+    (db) => QueueTable.deleteProcessedBefore(
+      db,
+      QueueSyncStatus.done.toDb(),
+      before,
+    ),
+  );
+
+  /// Updates the item [id] with [values] and its `updated_at`.
+  Future<void> _update(String id, Map<String, Object?> values) => _write(
+    (db) => QueueTable.update(db, id, {
+      ...values,
+      QueueColumns.updatedAt: clock().millisecondsSinceEpoch,
+    }),
+  );
+
+  /// Runs [query] (inside the current UnitOfWork transaction, if any).
+  Future<T> _read<T>(Future<T> Function(DatabaseExecutor db) query) =>
+      _guard(() => database.read(query));
+
+  /// Runs [action] like [_read]; the queue is notified as changed.
+  Future<T> _write<T>(Future<T> Function(DatabaseExecutor db) action) =>
+      _guard(() => database.write({QueueColumns.tableName}, action));
+
+  /// Runs [action], converting any storage error into a [CacheException].
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on CacheException {
+      rethrow;
+    } on Object catch (e) {
+      throw CacheException(message: 'Processing queue storage error: $e');
+    }
+  }
+}

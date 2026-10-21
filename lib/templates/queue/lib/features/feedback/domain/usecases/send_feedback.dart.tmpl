@@ -1,0 +1,81 @@
+// ─────────────────────────────────────────────────────────────
+// SendFeedbackUseCase
+// Validates a problem report, stores it and adds it to the processing
+// queue, which sends it to the API when there is a connection.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// Runs "send feedback" through the [FeedbackRepositoryInter].
+class SendFeedbackUseCaseImpl
+    implements UseCaseInter<FeedbackEntity, SendFeedbackParams> {
+  /// Creates the use case with the [repository] it uses.
+  SendFeedbackUseCaseImpl({required this.repository});
+
+  /// Source of the feedback data.
+  final FeedbackRepositoryInter repository;
+
+  /// Shortest description accepted (trimmed), so reports carry useful
+  /// detail.
+  static const int minDescriptionLength = 10;
+
+  /// Longest description accepted (trimmed).
+  static const int maxDescriptionLength = 1000;
+
+  /// Returns the stored report, a [ValidationFailure] (see
+  /// [FeedbackErrorCodes]) when [params] break a rule, or another
+  /// [Failure] if it could not be stored or queued. Success does not mean
+  /// it reached the API yet.
+  ///
+  /// The repository receives the description trimmed.
+  @override
+  FutureEither<FeedbackEntity> call(SendFeedbackParams params) async {
+    final description = params.description.trim();
+    if (description.length < minDescriptionLength) {
+      return const Left(
+        ValidationFailure(
+          message:
+              'The description needs at least $minDescriptionLength '
+              'characters.',
+          code: FeedbackErrorCodes.descriptionTooShort,
+        ),
+      );
+    }
+    if (description.length > maxDescriptionLength) {
+      return const Left(
+        ValidationFailure(
+          message:
+              'The description cannot exceed $maxDescriptionLength '
+              'characters.',
+          code: FeedbackErrorCodes.descriptionTooLong,
+        ),
+      );
+    }
+    return repository.sendFeedback(
+      SendFeedbackParams(category: params.category, description: description),
+    );
+  }
+}
+
+/// Data of a new problem report.
+class SendFeedbackParams extends Equatable {
+  /// Creates the parameters.
+  const SendFeedbackParams({
+    required this.category,
+    required this.description,
+  });
+
+  /// What the report is about.
+  final FeedbackCategory category;
+
+  /// Text written by the user.
+  final String description;
+
+  @override
+  List<Object?> get props => [category, description];
+}

@@ -1,0 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// QueueSyncStatus
+// Where an item of the processing queue stands, and how it is stored
+// in SQLite. The features show it next to their records.
+// ─────────────────────────────────────────────────────────────
+
+/// Lifecycle of an operation sent through the processing queue.
+///
+/// ```text
+/// incomplete ──► processing ──► done
+///     ▲               │
+///     └── retryable ──┤
+///                     └──► error ──(manual retry)──► incomplete
+/// ```
+enum QueueSyncStatus {
+  /// Stored and waiting to be sent (no connection yet, or a retryable
+  /// failure happened).
+  incomplete,
+
+  /// Being sent right now.
+  processing,
+
+  /// Accepted by the API.
+  done,
+
+  /// Rejected by the API (4xx) or failed too many times. Only a manual
+  /// retry sends it again.
+  error,
+}
+
+/// Conversion of a [QueueSyncStatus] to its stored value.
+extension QueueSyncStatusDb on QueueSyncStatus {
+  /// Value stored in the database. Never change it once released.
+  String toDb() => name;
+}
+
+/// Parses a [QueueSyncStatus] stored with [QueueSyncStatusDb.toDb];
+/// [QueueSyncStatus.incomplete] when it is unknown.
+QueueSyncStatus queueSyncStatusFromDb(String value) =>
+    QueueSyncStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => QueueSyncStatus.incomplete,
+    );

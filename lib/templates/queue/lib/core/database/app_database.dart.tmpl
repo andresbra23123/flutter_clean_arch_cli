@@ -1,0 +1,269 @@
+// ─────────────────────────────────────────────────────────────
+// AppDatabase
+// Opens the SQLite database of the app (sqflite), enables foreign
+// keys and brings the schema up to date: first the migrations of core,
+// then the pending ones of every feature schema it is given. Data
+// sources read and write through read()/write(),
+// which notify the changed tables (for watch()) and join the current
+// UnitOfWork transaction, if any.
+// Registered once in core/di/injection_container.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:{{package}}/core/database/feature_schema.dart';
+import 'package:{{package}}/core/database/migrations.dart';
+import 'package:{{package}}/core/database/unit_of_work.dart';
+import 'package:sqflite/sqflite.dart';
+
+/// SQLite database shared by every local data source.
+///
+/// Two levels of versions:
+///  - core: its own tables ([coreMigrations]), in `PRAGMA user_version`;
+///  - features: each [FeatureSchema] keeps its version in
+///    `schema_versions`, so every feature migrates on its own.
+///
+/// On open every pending migration runs in order. A new install runs
+/// them all from the first one, so new and upgraded devices follow the
+/// same path. Each migration runs in a transaction with the update of
+/// its version: if it fails, nothing of it is applied.
+///
+/// Data sources never use [db] directly: [read] and [write] pick the
+/// open [run] transaction when there is one (using [db] inside it would
+/// deadlock), and [write] always notifies the tables it changed.
+class AppDatabase implements UnitOfWork {
+  AppDatabase._(this.db);
+
+  /// Name of the database file on the device.
+  static const String fileName = 'app.db';
+
+  /// The underlying sqflite database. Use [read] and [write] instead;
+  /// public for the migrations and the tests.
+  final Database db;
+
+  /// Zone key of the transaction opened by [run].
+  static final Object _scopeKey = Object();
+
+  final StreamController<String> _changes = StreamController.broadcast();
+
+  /// Opens (and creates or migrates, if needed) the database with the
+  /// tables of [schemas], one per feature that stores data.
+  ///
+  /// [migrations] (the ones of core) defaults to [coreMigrations]; tests
+  /// pass their own. [path] and [factory] exist for tests too: pass
+  /// `inMemoryDatabasePath` and `databaseFactoryFfi` to use an in-memory
+  /// database on the desktop VM.
+  ///
+  /// Throws a [StateError] when two schemas share a name, or when the
+  /// stored database is newer than the app (downgrades are not
+  /// supported).
+  static Future<AppDatabase> open({
+    required List<FeatureSchema> schemas,
+    List<Migration> migrations = coreMigrations,
+    String? path,
+    DatabaseFactory? factory,
+  }) async {
+    final names = schemas.map((schema) => schema.name).toList();
+    final repeated = names.where(
+      (name) => names.indexOf(name) != names.lastIndexOf(name),
+    );
+    if (repeated.isNotEmpty) {
+      throw StateError('Schema "${repeated.first}" is registered twice.');
+    }
+
+    final dbFactory = factory ?? databaseFactory;
+    final dbPath = path ?? p.join(await dbFactory.getDatabasesPath(), fileName);
+
+    Future<void> migrate(Database db, int from, int to) async {
+      for (var version = from; version < to; version++) {
+        await migrations[version](db);
+      }
+    }
+
+    final db = await dbFactory.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: migrations.length,
+        onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+        onCreate: (db, version) => migrate(db, 0, version),
+        onUpgrade: migrate,
+        onDowngrade: (db, from, to) => throw StateError(
+          'Database version $from is newer than the app ($to). '
+          'Downgrades are not supported.',
+        ),
+      ),
+    );
+    try {
+      for (final schema in schemas) {
+        await _migrateSchema(db, schema);
+      }
+    } on Object {
+      await db.close();
+      rethrow;
+    }
+    return AppDatabase._(db);
+  }
+
+  /// Runs the migrations of [schema] after the version stored for it, each
+  /// one in a transaction with the update of that version.
+  static Future<void> _migrateSchema(Database db, FeatureSchema schema) async {
+    final stored = await _storedVersion(db, schema.name);
+    if (stored > schema.version) {
+      throw StateError(
+        'Schema "${schema.name}" version $stored is newer than the app '
+        '(${schema.version}). Downgrades are not supported.',
+      );
+    }
+    for (var version = stored; version < schema.version; version++) {
+      await db.transaction((txn) async {
+        await schema.migrations[version](txn);
+        await txn.insert(
+          SchemaVersionColumns.tableName,
+          {
+            SchemaVersionColumns.feature: schema.name,
+            SchemaVersionColumns.version: version + 1,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      });
+    }
+  }
+
+  static Future<int> _storedVersion(DatabaseExecutor db, String feature) async {
+    final rows = await db.query(
+      SchemaVersionColumns.tableName,
+      columns: [SchemaVersionColumns.version],
+      where: '${SchemaVersionColumns.feature} = ?',
+      whereArgs: [feature],
+    );
+    return rows.isEmpty ? 0 : rows.single[SchemaVersionColumns.version]! as int;
+  }
+
+  /// Version of the core migrations.
+  Future<int> get version => db.getVersion();
+
+  /// Version of the schema [feature] applied on this device; 0 when none.
+  Future<int> versionOf(String feature) => _storedVersion(db, feature);
+
+  /// Emits the name of a table every time it changes (after the commit,
+  /// for writes inside [run]).
+  Stream<String> get changes => _changes.stream;
+
+  /// Tells the listeners of [changes] that [table] was modified. [write]
+  /// calls it; data sources never need to.
+  @visibleForTesting
+  void notifyChange(String table) {
+    if (!_changes.isClosed) _changes.add(table);
+  }
+
+  /// The transaction opened by [run] in this zone, while it is open.
+  _Scope? get _scope {
+    final scope = Zone.current[_scopeKey];
+    return scope is _Scope && scope.open && identical(scope.database, this)
+        ? scope
+        : null;
+  }
+
+  /// Runs [query] on the open [run] transaction, or on [db].
+  Future<T> read<T>(Future<T> Function(DatabaseExecutor db) query) =>
+      query(_scope?.txn ?? db);
+
+  /// Runs [action] like [read] and then notifies [tables] as changed:
+  /// right away, or when the open [run] transaction commits. Nothing is
+  /// notified if [action] throws.
+  Future<T> write<T>(
+    Set<String> tables,
+    Future<T> Function(DatabaseExecutor db) action,
+  ) async {
+    final scope = _scope;
+    final result = await action(scope?.txn ?? db);
+    if (scope != null) {
+      scope.changed.addAll(tables);
+    } else {
+      tables.forEach(notifyChange);
+    }
+    return result;
+  }
+
+  @override
+  Future<T> run<T>(Future<T> Function() action) async {
+    // Nested: join the transaction that is already open.
+    if (_scope != null) return action();
+
+    _Scope? scope;
+    try {
+      final result = await db.transaction((txn) {
+        scope = _Scope(this, txn);
+        return runZoned(action, zoneValues: {_scopeKey: scope});
+      });
+      // Committed: release the scope first, so the callbacks (and any
+      // future started inside the transaction) use the database again.
+      final committed = scope!..open = false;
+      committed.changed.forEach(notifyChange);
+      for (final callback in committed.afterCommit) {
+        callback();
+      }
+      return result;
+    } finally {
+      scope?.open = false;
+    }
+  }
+
+  @override
+  void afterCommit(void Function() callback) {
+    final scope = _scope;
+    if (scope == null) {
+      callback();
+    } else {
+      scope.afterCommit.add(callback);
+    }
+  }
+
+  /// Runs [query] when listened to and again every time one of [tables]
+  /// changes, emitting each result. An error of [query] is emitted as an
+  /// error and the stream keeps going.
+  Stream<T> watch<T>(Set<String> tables, Future<T> Function() query) {
+    late final StreamController<T> controller;
+    StreamSubscription<String>? subscription;
+
+    Future<void> emit() async {
+      try {
+        final result = await query();
+        if (!controller.isClosed) controller.add(result);
+      } on Object catch (error, stackTrace) {
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      }
+    }
+
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = changes.where(tables.contains).listen((_) => emit());
+        unawaited(emit());
+      },
+      onCancel: () => subscription?.cancel(),
+    );
+    return controller.stream;
+  }
+
+  /// Closes the database and the [changes] stream.
+  Future<void> close() async {
+    await _changes.close();
+    await db.close();
+  }
+}
+
+/// A transaction opened by [AppDatabase.run]: what it changed and what to
+/// run once it commits.
+class _Scope {
+  _Scope(this.database, this.txn);
+
+  final AppDatabase database;
+  final Transaction txn;
+  final Set<String> changed = {};
+  final List<void Function()> afterCommit = [];
+
+  /// False once committed or rolled back.
+  bool open = true;
+}

@@ -14,6 +14,7 @@ import 'package:flutter_clean_arch/src/commands/feature_command.dart';
 import 'package:flutter_clean_arch/src/commands/init_command.dart';
 import 'package:flutter_clean_arch/src/commands/model_command.dart';
 import 'package:flutter_clean_arch/src/commands/page_command.dart';
+import 'package:flutter_clean_arch/src/commands/queue_command.dart';
 import 'package:flutter_clean_arch/src/commands/remove_command.dart';
 import 'package:flutter_clean_arch/src/commands/rename_command.dart';
 import 'package:flutter_clean_arch/src/commands/test_command.dart';
@@ -42,6 +43,7 @@ class CliRunner extends CommandRunner<int> {
     addCommand(InitCommand());
     addCommand(FeatureCommand());
     addCommand(AuthCommand());
+    addCommand(QueueCommand());
     addCommand(PageCommand());
     addCommand(BlocCommand());
     addCommand(UsecaseCommand());
@@ -136,12 +138,12 @@ class CliRunner extends CommandRunner<int> {
     return (path, path.isEmpty ? null : results);
   }
 
-  /// Stops risky commands (`remove`, `rename`, `auth`, any `--force`) when
-  /// the git repository has uncommitted changes, so they can be undone
-  /// with git. `--allow-dirty` skips the check.
+  /// Stops risky commands (`remove`, `rename`, `auth`, `queue`, any
+  /// `--force`) when the git repository has uncommitted changes, so they
+  /// can be undone with git. `--allow-dirty` skips the check.
   void _checkUncommittedChanges(List<String> path, ArgResults args) {
     final risky =
-        const {'remove', 'rename', 'auth'}.contains(path.first) ||
+        const {'remove', 'rename', 'auth', 'queue'}.contains(path.first) ||
         (args.options.contains('force') && args['force'] == true);
     if (!risky || (args['allow-dirty'] as bool? ?? false)) return;
 
@@ -215,6 +217,9 @@ class CliRunner extends CommandRunner<int> {
     if (version == null) return;
     final installsAuth =
         path.first == 'auth' || (path.first == 'init' && args['auth'] == true);
+    final installsQueue =
+        path.first == 'queue' ||
+        (path.first == 'init' && args['queue'] == true);
     final current = readProjectConfig(root);
     writeProjectConfig(
       root,
@@ -223,6 +228,7 @@ class CliRunner extends CommandRunner<int> {
             current?.createdWith ?? (path.first == 'init' ? version : null),
         lastModifiedWith: version,
         auth: (current?.auth ?? false) || installsAuth,
+        queue: (current?.queue ?? false) || installsQueue,
       ),
     );
   }

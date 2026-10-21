@@ -1,0 +1,23 @@
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Handler that accepts every item of its [operation], as if the API
+/// answered 2xx, so a test can release a real queue without HTTP.
+class AcceptingQueueHandler extends QueueHandler {
+  /// Creates the handler of [operation], with its [priority].
+  const AcceptingQueueHandler(
+    this.operation, {
+    this.priority = QueuePriority.normal,
+  });
+
+  @override
+  final String operation;
+
+  @override
+  final QueuePriority priority;
+
+  @override
+  Future<Object?> send(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async => null;
+}

@@ -1,0 +1,64 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueEvent
+// Every event (user action or trigger) that ProcessingQueueBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'processing_queue_bloc.dart';
+
+/// Base class for all processing queue events.
+abstract class ProcessingQueueEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const ProcessingQueueEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Starts listening to the queue and the connection. Dispatched when the
+/// screen opens.
+class QueueSubscriptionRequested extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueSubscriptionRequested();
+}
+
+/// The user asked to release the queue now.
+class QueueReleaseRequested extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueReleaseRequested();
+}
+
+/// The user asked to send again the failed item [id].
+class QueueItemRetryRequested extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueItemRetryRequested(this.id);
+
+  /// Id of the item to retry.
+  final String id;
+
+  @override
+  List<Object?> get props => [id];
+}
+
+/// The user asked to send again every failed item.
+class QueueFailedRetryRequested extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueFailedRetryRequested();
+}
+
+/// The user asked to delete the processed items.
+class QueueDonePurgeRequested extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueDonePurgeRequested();
+}
+
+/// The user selected a status filter (`null` shows every item).
+class QueueFilterChanged extends ProcessingQueueEvent {
+  /// Creates the event.
+  const QueueFilterChanged(this.filter);
+
+  /// Status to show, or `null` for all.
+  final QueueSyncStatus? filter;
+
+  @override
+  List<Object?> get props => [filter];
+}

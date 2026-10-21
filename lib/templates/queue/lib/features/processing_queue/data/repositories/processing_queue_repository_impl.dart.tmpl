@@ -1,0 +1,361 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueRepositoryImpl
+// Implements the processing queue: stores every item in SQLite first
+// and releases the queue (sends the pending items to the API by
+// priority, FIFO within a priority) whenever there is a connection. Each item is sent by the
+// QueueHandler of its feature: the queue knows no endpoint.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:async';
+import 'dart:developer';
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/database/unit_of_work.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/processing_queue/data/data.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// [ProcessingQueueRepositoryInter] implementation.
+///
+/// While releasing, an accepted item (2xx) moves to [QueueSyncStatus.done]. A
+/// failed one moves back to [QueueSyncStatus.incomplete] or to
+/// [QueueSyncStatus.error] as the [retryPolicy] decides; this class only
+/// translates the exceptions of the handlers into a [DeliveryFailure]
+/// and stores the decision.
+class ProcessingQueueRepositoryImpl implements ProcessingQueueRepositoryInter {
+  /// Creates the repository with its data source, the handlers of the
+  /// operations and the network checker.
+  ///
+  /// [releaseOnEnqueue] releases the queue in the background after every
+  /// enqueue and retry; tests turn it off to control when it happens.
+  ProcessingQueueRepositoryImpl({
+    required this.handlers,
+    required this.localDataSource,
+    required this.networkInfo,
+    required this.unitOfWork,
+    this.retryPolicy = const RetryPolicy(),
+    this.ids = const UuidIdGenerator(),
+    this.clock = const SystemClock(),
+    this.releaseOnEnqueue = true,
+  });
+
+  /// Decides whether a failed item is retried.
+  final RetryPolicy retryPolicy;
+
+  /// Creates the ids of the items enqueued without one.
+  final IdGeneratorInter ids;
+
+  /// Tells when an item is enqueued and which done items are old.
+  final ClockInter clock;
+
+  /// Defers the release until the item is committed, when it is enqueued
+  /// inside another write (e.g. with the transaction it sends).
+  final UnitOfWork unitOfWork;
+
+  /// Sends each operation, through the remote data source of its
+  /// feature. Filled by the features that enqueue.
+  final QueueHandlerRegistry handlers;
+
+  /// Last error of an item whose operation has no handler.
+  static const String unknownOperationError =
+      'This version of the app cannot send this operation.';
+
+  /// Stores the queue on the device.
+  final ProcessingQueueLocalDataSourceInter localDataSource;
+
+  /// Tells whether the device is online.
+  final NetworkInfoInter networkInfo;
+
+  /// Whether enqueueing or retrying an item also releases the queue.
+  final bool releaseOnEnqueue;
+
+  /// Release in progress, shared by every caller (single flight).
+  Future<EitherOr<QueueReleaseResult>>? _running;
+
+  /// Set when a release is requested while another one is running, so
+  /// items enqueued meanwhile are not left waiting for the next trigger.
+  bool _releaseAgain = false;
+
+  @override
+  // Explicit type: the Right must hold entities, not models, or
+  // `getOrElse(() => <QueueItemEntity>[])` fails at runtime.
+  StreamEither<List<QueueItemEntity>> watchQueue() =>
+      StreamEitherX<List<QueueItemEntity>>(localDataSource.watchAll()).toEither(
+        (error) => CacheFailure(
+          message: error is CacheException ? error.message : '$error',
+        ),
+      );
+
+  @override
+  FutureEither<QueueItemEntity> enqueueItem(EnqueueParams params) async {
+    final now = clock.now();
+    final item = QueueItemModel(
+      id: params.id ?? ids.next(),
+      operation: params.operation,
+      payload: params.payload,
+      status: QueueSyncStatus.incomplete,
+      // The enqueue may override the priority of the operation.
+      priority:
+          params.priority ??
+          handlers.handlerFor(params.operation)?.priority ??
+          QueuePriority.normal,
+      createdAt: now,
+      updatedAt: now,
+    );
+    try {
+      await localDataSource.insert(item);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+    // With internet the item goes out right away, but always through the
+    // queue. Without internet it stays retained until the connection is
+    // back (see QueueSyncService).
+    _releaseInBackground();
+    return Right(item);
+  }
+
+  @override
+  FutureEither<Unit> enqueue({
+    required String id,
+    required String operation,
+    required Map<String, dynamic> payload,
+    QueuePriority? priority,
+  }) async {
+    final queued = await enqueueItem(
+      EnqueueParams(
+        id: id,
+        operation: operation,
+        payload: payload,
+        priority: priority,
+      ),
+    );
+    return queued.map((_) => unit);
+  }
+
+  @override
+  FutureEither<QueueReleaseResult> releaseQueue() {
+    final running = _running;
+    if (running != null) {
+      _releaseAgain = true;
+      return running;
+    }
+    return _running = _releaseWhileRequested().whenComplete(
+      () => _running = null,
+    );
+  }
+
+  @override
+  FutureEither<Unit> retryQueueItem(String params) async {
+    try {
+      final moved = await localDataSource.resetFailed(ids: {params});
+      if (moved == 0 && await localDataSource.getById(params) == null) {
+        return const Left(NotFoundFailure(message: 'Queue item not found.'));
+      }
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+    _releaseInBackground();
+    return const Right(unit);
+  }
+
+  @override
+  FutureEither<int> retryFailedItems() async {
+    try {
+      final moved = await localDataSource.resetFailed();
+      if (moved > 0) _releaseInBackground();
+      return Right(moved);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+
+  @override
+  FutureEither<int> purgeDoneItems(Duration params) async {
+    try {
+      return Right(
+        await localDataSource.deleteDone(
+          before: clock.now().subtract(params),
+        ),
+      );
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+
+  @override
+  FutureEither<int> recoverInterruptedItems() async {
+    try {
+      return Right(await localDataSource.resetProcessing());
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+
+  // flutter_clean_arch:repository-methods
+
+  /// Releases the queue in the background once the current write is
+  /// committed: the release must never send an item that could still be
+  /// rolled back.
+  void _releaseInBackground() {
+    if (!releaseOnEnqueue) return;
+    unitOfWork.afterCommit(() => unawaited(releaseQueue()));
+  }
+
+  /// Releases the queue again while new releases were requested during
+  /// the previous one. Returns the totals of every pass.
+  Future<EitherOr<QueueReleaseResult>> _releaseWhileRequested() async {
+    var done = 0;
+    var failed = 0;
+    EitherOr<QueueReleaseResult> result;
+    do {
+      _releaseAgain = false;
+      result = await _releaseOnce();
+      final pass = result.getOrElse(() => const QueueReleaseResult());
+      done += pass.done;
+      failed += pass.failed;
+    } while (_releaseAgain && result.isRight());
+    return result.map(
+      (last) =>
+          QueueReleaseResult(done: done, failed: failed, pending: last.pending),
+    );
+  }
+
+  /// Sends every pending item once, highest priority first and oldest
+  /// first within a priority.
+  Future<EitherOr<QueueReleaseResult>> _releaseOnce() async {
+    try {
+      if (!await networkInfo.isConnected) {
+        // No internet: everything stays retained in the queue.
+        return Right(
+          QueueReleaseResult(
+            pending: await localDataSource.countByStatus(
+              QueueSyncStatus.incomplete,
+            ),
+          ),
+        );
+      }
+
+      var done = 0;
+      var failed = 0;
+      // Items already tried in this pass: a retryable failure puts them
+      // back as incomplete, and they must wait for the next release.
+      final attempted = <String>{};
+      var stop = false;
+
+      while (!stop) {
+        final batch = await localDataSource.fetchPending(
+          excludeIds: attempted,
+        );
+        if (batch.isEmpty) break;
+
+        for (final item in batch) {
+          attempted.add(item.id);
+          await localDataSource.markProcessing(item.id);
+          final decision = await _process(item);
+          if (decision == null) {
+            done++;
+            continue;
+          }
+          if (decision.fails) failed++;
+          if (decision.stopsRelease) {
+            stop = true;
+            break;
+          }
+        }
+      }
+
+      return Right(
+        QueueReleaseResult(
+          done: done,
+          failed: failed,
+          pending: await localDataSource.countByStatus(
+            QueueSyncStatus.incomplete,
+          ),
+        ),
+      );
+    } on CacheException catch (e) {
+      await _recoverQuietly();
+      return Left(CacheFailure(message: e.message));
+    } on Object catch (e) {
+      await _recoverQuietly();
+      return Left(ServerFailure(message: 'Queue release failed: $e'));
+    }
+  }
+
+  /// Sends [item] and stores its new status. Returns `null` when the API
+  /// accepted it, or the [RetryDecision] of the [retryPolicy] already
+  /// applied to the item.
+  Future<RetryDecision?> _process(QueueItemModel item) async {
+    final handler = handlers.handlerFor(item.operation);
+    if (handler == null) {
+      return _fail(item, const OperationUnknown(), unknownOperationError);
+    }
+
+    final Object? response;
+    try {
+      // The item id is the idempotency key: a resent item is the same.
+      response = await handler.send(item.id, item.payload);
+    } on NetworkException catch (e) {
+      return _fail(item, const ApiUnreachable(), e.message);
+    } on ServerException catch (e) {
+      final status = e.statusCode;
+      return _fail(
+        item,
+        ApiRejected(status),
+        status == null ? e.message : '$status: ${e.message}',
+      );
+    }
+
+    // The API accepted the item: a failure here must not send it again.
+    try {
+      await handler.onDelivered(item.payload, response);
+    } on Object catch (e, stackTrace) {
+      log(
+        'onDelivered of ${item.operation} failed for ${item.id}',
+        name: 'ProcessingQueue',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    await localDataSource.markDone(item.id);
+    return null;
+  }
+
+  /// Applies the [retryPolicy] to [item] after a failed attempt and
+  /// stores its new status with the [error]. Returns the decision.
+  Future<RetryDecision> _fail(
+    QueueItemModel item,
+    DeliveryFailure failure,
+    String error,
+  ) async {
+    final attempts = item.attempts + 1;
+    final decision = retryPolicy.decide(failure, attempts: attempts);
+    if (decision.fails) {
+      await localDataSource.markError(
+        item.id,
+        attempts: attempts,
+        error: error,
+      );
+    } else {
+      await localDataSource.markIncomplete(
+        item.id,
+        attempts: attempts,
+        error: error,
+      );
+    }
+    return decision;
+  }
+
+  /// Puts back any item left in processing after an unexpected error.
+  Future<void> _recoverQuietly() async {
+    try {
+      await localDataSource.resetProcessing();
+    } on Object {
+      // The next start recovers it (QueueSyncService.start).
+    }
+  }
+}

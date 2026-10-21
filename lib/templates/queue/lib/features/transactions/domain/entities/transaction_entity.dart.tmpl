@@ -1,0 +1,123 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionEntity
+// A transaction recorded on the device about a work (route) or one of
+// its orders: start/end of the route, delivery, rejection… It reaches
+// the API only through the processing queue; syncStatus is the status
+// of its queue item. Fields generated from the API JSON by
+// `flutter_clean_arch model`.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Transaction as the domain layer sees it.
+class TransactionEntity extends Equatable {
+  /// Creates the transaction entity.
+  const TransactionEntity({
+    required this.id,
+    required this.workId,
+    required this.status,
+    required this.createdAt,
+    required this.queueId,
+    this.summaryId,
+    this.workcode,
+    this.orderNumber,
+    this.expedition,
+    this.payments = const [],
+    this.delivery,
+    this.observation,
+    this.images = const [],
+    this.firm,
+    this.operativeCenter,
+    this.start,
+    this.end,
+    this.latitude,
+    this.longitude,
+    this.syncStatus = QueueSyncStatus.incomplete,
+  });
+
+  /// Unique identifier (uuid), created on the device.
+  final String id;
+
+  /// Work (route) it belongs to.
+  final int workId;
+
+  /// What it records.
+  final TransactionStatus status;
+
+  /// When it was recorded on the device. The list is sorted by it.
+  final DateTime createdAt;
+
+  /// Document (summary) of the order, if it is about one.
+  final int? summaryId;
+
+  /// Code of the work.
+  final String? workcode;
+
+  /// Order it is about, `null` for route events.
+  final String? orderNumber;
+
+  /// Expedition of the order.
+  final String? expedition;
+
+  /// Payments received with the delivery.
+  final List<PaymentEntity> payments;
+
+  /// Amount delivered.
+  final String? delivery;
+
+  /// Observation written by the driver.
+  final String? observation;
+
+  /// Paths on the device of the photos taken as evidence.
+  final List<String> images;
+
+  /// Path on the device of the signature, if any.
+  final String? firm;
+
+  /// Operative center of the work.
+  final String? operativeCenter;
+
+  /// When the action started.
+  final DateTime? start;
+
+  /// When the action ended.
+  final DateTime? end;
+
+  /// Latitude where it was recorded.
+  final String? latitude;
+
+  /// Longitude where it was recorded.
+  final String? longitude;
+
+  /// Id of the queue item that sends it to the API.
+  final String queueId;
+
+  /// Status of that queue item.
+  final QueueSyncStatus syncStatus;
+
+  @override
+  List<Object?> get props => [
+    id,
+    workId,
+    status,
+    createdAt,
+    summaryId,
+    workcode,
+    orderNumber,
+    expedition,
+    payments,
+    delivery,
+    observation,
+    images,
+    firm,
+    operativeCenter,
+    start,
+    end,
+    latitude,
+    longitude,
+    queueId,
+    syncStatus,
+  ];
+}

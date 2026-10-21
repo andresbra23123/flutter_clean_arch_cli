@@ -1,0 +1,15 @@
+/// What the features share with the processing queue:
+/// - `queue_outbox_inter.dart`: how an item enters the queue.
+/// - `queue_handler.dart`: how an item leaves it (one handler per
+///   operation, registered by each feature).
+/// - `queue_priority.dart`: which items are sent first.
+/// - `queue_sync_status.dart`: where an item stands.
+/// - `queue_sync_columns.dart`: how a feature joins its records with
+///   their queue item to read that status.
+library;
+
+export 'queue_handler.dart';
+export 'queue_outbox_inter.dart';
+export 'queue_priority.dart';
+export 'queue_sync_columns.dart';
+export 'queue_sync_status.dart';

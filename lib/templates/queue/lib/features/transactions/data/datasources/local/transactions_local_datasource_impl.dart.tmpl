@@ -1,0 +1,68 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsLocalDataSourceImpl
+// Stores the transactions through the TransactionTable queries
+// (transactions_table.dart) and reads them joined with the status of
+// their queue item. It writes no SQL itself.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+
+/// [TransactionsLocalDataSourceInter] implementation backed by SQLite.
+class TransactionsLocalDataSourceImpl
+    implements TransactionsLocalDataSourceInter {
+  /// Creates the data source on top of [database].
+  TransactionsLocalDataSourceImpl({required this.database});
+
+  /// Database that holds the transactions.
+  final AppDatabase database;
+
+  /// Tables whose changes affect [watchAll].
+  static const Set<String> _watchedTables = {
+    TransactionColumns.tableName,
+    QueueSyncColumns.queueTable,
+  };
+
+  /// Tables changed by [insert] and [applyServerCopy].
+  static const Set<String> _writtenTables = {TransactionColumns.tableName};
+
+  @override
+  Stream<List<TransactionModel>> watchAll() => database.watch(
+    _watchedTables,
+    () => _guard(() async {
+      final rows = await database.read(TransactionTable.findAllWithSyncStatus);
+      return rows.map(TransactionModel.fromRow).toList();
+    }),
+  );
+
+  @override
+  Future<void> insert(TransactionModel transaction) => _guard(
+    () => database.write(
+      _writtenTables,
+      (db) => TransactionTable.insert(db, transaction.toRow()),
+    ),
+  );
+
+  @override
+  Future<void> applyServerCopy(String id, Map<String, dynamic> json) {
+    final values = TransactionModel.rowFromServerJson(json);
+    if (values.isEmpty) return Future.value();
+    return _guard(
+      () => database.write(
+        _writtenTables,
+        (db) => TransactionTable.update(db, id, values),
+      ),
+    );
+  }
+
+  /// Runs [action], converting any storage error into a [CacheException].
+  Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on Object catch (e) {
+      throw CacheException(message: 'Transactions storage error: $e');
+    }
+  }
+}

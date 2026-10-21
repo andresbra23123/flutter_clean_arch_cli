@@ -1,0 +1,31 @@
+// ─────────────────────────────────────────────────────────────
+// QueueOutboxInter (contract)
+// How an item ENTERS the processing queue. The features enqueue through
+// this contract only, so they never depend on the processing_queue
+// feature, which implements it.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/queue_sync/queue_priority.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+
+/// Stores operations to be sent to the API.
+abstract interface class QueueOutboxInter {
+  /// Adds the [operation] with its [payload] to the queue as the item
+  /// [id].
+  ///
+  /// [operation] is the code of a `QueueHandler` registered in the
+  /// `QueueHandlerRegistry`; that handler sends the item, through the
+  /// remote data source of its feature, when the queue is released. Run
+  /// it in the same UnitOfWork as the record it sends, so both are stored
+  /// together or not at all.
+  ///
+  /// [priority] overrides the one of the handler for this item only;
+  /// leave it `null` to use the handler's.
+  FutureEither<Unit> enqueue({
+    required String id,
+    required String operation,
+    required Map<String, dynamic> payload,
+    QueuePriority? priority,
+  });
+}

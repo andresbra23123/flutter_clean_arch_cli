@@ -1,0 +1,109 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackPage
+// Lists the problem reports with their sync status and creates new
+// ones. Every new report goes to the processing queue.
+// FeedbackPage provides the BLoC; FeedbackView builds the UI.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/feedback/presentation/presentation.dart';
+
+/// Entry point of the feedback screen.
+class FeedbackPage extends StatelessWidget {
+  /// Creates the feedback page.
+  const FeedbackPage({super.key});
+
+  /// Route path of this page, registered in AppRouter.
+  static const String routeName = AppRoutes.feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) =>
+          getIt<FeedbackBloc>()..add(const FeedbackSubscriptionRequested()),
+      child: const FeedbackView(),
+    );
+  }
+}
+
+/// UI of the feedback screen. Reads the [FeedbackBloc] provided by
+/// [FeedbackPage].
+class FeedbackView extends StatelessWidget {
+  /// Creates the feedback view.
+  const FeedbackView({super.key});
+
+  Future<void> _create(BuildContext context) async {
+    final bloc = context.read<FeedbackBloc>();
+    final event = await FeedbackFormDialog.show(context);
+    if (event != null) bloc.add(event);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.feedbackTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.queueTitle,
+            icon: const Icon(Icons.queue),
+            onPressed: () => context.pushNamed(AppRoutes.processingQueueName),
+          ),
+        ],
+      ),
+      body: BlocConsumer<FeedbackBloc, FeedbackState>(
+        listenWhen: (previous, current) =>
+            previous.lastSent != current.lastSent ||
+            previous.failureMessage != current.failureMessage,
+        listener: (context, state) {
+          if (state.failureMessage != null) {
+            AppUtils.showSnackBar(
+              context,
+              state.failureMessage!,
+              isError: true,
+            );
+          } else if (state.lastSent != null) {
+            AppUtils.showSnackBar(context, l10n.feedbackQueued);
+          }
+        },
+        builder: (context, state) {
+          switch (state.status) {
+            case FeedbackViewStatus.loading:
+              return const Center(child: CircularProgressIndicator());
+            case FeedbackViewStatus.failure when state.items.isEmpty:
+              return FeedbackErrorView(
+                message: state.failureMessage ?? '',
+                onRetry: () => context.read<FeedbackBloc>().add(
+                  const FeedbackSubscriptionRequested(),
+                ),
+              );
+            case FeedbackViewStatus.ready || FeedbackViewStatus.failure:
+              if (state.items.isEmpty) {
+                return Center(child: Text(l10n.feedbackEmpty));
+              }
+              return ListView.separated(
+                // Room for the floating action button.
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: state.items.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, index) =>
+                    FeedbackTile(feedback: state.items[index]),
+              );
+          }
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _create(context),
+        icon: const Icon(Icons.feedback_outlined),
+        label: Text(l10n.feedbackAdd),
+      ),
+    );
+  }
+}

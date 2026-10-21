@@ -1,0 +1,155 @@
+import 'dart:convert';
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/helpers.dart';
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+class _MockOutbox extends Mock implements QueueOutboxInter {}
+
+class _FixedClock implements ClockInter {
+  @override
+  DateTime now() => DateTime(2026, 10, 6, 10, 20);
+}
+
+class _SequentialIds implements IdGeneratorInter {
+  int _next = 0;
+
+  @override
+  String next() => 'id-${_next++}';
+}
+
+void main() {
+  late AppDatabase database;
+  late TransactionsLocalDataSourceImpl local;
+  late ProcessingQueueLocalDataSourceImpl queueLocal;
+  late _MockNetworkInfo networkInfo;
+  late ProcessingQueueRepositoryImpl queue;
+  late TransactionsRepositoryImpl repository;
+
+  const delivery = CreateTransactionParams(
+    workId: 120,
+    status: TransactionStatus.reject,
+    orderNumber: 'PED-8812',
+    images: ['/photos/a.jpg'],
+  );
+
+  TransactionsRepositoryImpl repositoryWith(QueueOutboxInter outbox) =>
+      TransactionsRepositoryImpl(
+        localDataSource: local,
+        outbox: outbox,
+        unitOfWork: database,
+        ids: _SequentialIds(),
+        clock: _FixedClock(),
+      );
+
+  setUp(() async {
+    database = await openTestDatabase();
+    local = TransactionsLocalDataSourceImpl(database: database);
+    queueLocal = ProcessingQueueLocalDataSourceImpl(database: database);
+    networkInfo = _MockNetworkInfo();
+    queue = ProcessingQueueRepositoryImpl(
+      handlers: QueueHandlerRegistry(const [
+        AcceptingQueueHandler(StoreTransactionQueueHandler.code),
+      ]),
+      localDataSource: queueLocal,
+      networkInfo: networkInfo,
+      unitOfWork: database,
+      releaseOnEnqueue: false,
+    );
+    repository = repositoryWith(queue);
+    when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+  });
+
+  tearDown(() => database.close());
+
+  group('writes', () {
+    test('the result of an order is stored and enqueued for /store', () async {
+      final stored = (await repository.createTransaction(
+        delivery,
+      )).getOrElse(() => throw StateError('not stored'));
+
+      final queued = (await queueLocal.getById(stored.queueId))!;
+      expect(queued.status, QueueSyncStatus.incomplete);
+      expect(queued.operation, StoreTransactionQueueHandler.code);
+      expect(queued.payload, containsPair('id', stored.id));
+      expect(queued.payload, containsPair('work_id', 120));
+      expect(queued.payload, containsPair('status', 'reject'));
+      expect(queued.payload['images'], jsonEncode(['/photos/a.jpg']));
+      // Without an end time it ends now, in the format of the API.
+      expect(queued.payload, containsPair('end', '2026-10-06 10:20:00'));
+    });
+
+    test('the start of a route is enqueued for /client', () async {
+      final started = (await repository.startTransaction(
+        const RouteEventParams(workId: 120, workcode: 'W-12'),
+      )).getOrElse(() => throw StateError('not stored'));
+
+      final queued = (await queueLocal.getById(started.queueId))!;
+      expect(started.status, TransactionStatus.start);
+      expect(queued.operation, ClientTransactionQueueHandler.startCode);
+      expect(queued.payload, containsPair('status', 'start'));
+      expect(queued.payload, containsPair('start', '2026-10-06 10:20:00'));
+      expect(queued.payload, containsPair('end', null));
+    });
+
+    test('the end of a route is enqueued for /client', () async {
+      final ended = (await repository.endTransaction(
+        const RouteEventParams(workId: 120),
+      )).getOrElse(() => throw StateError('not stored'));
+
+      final queued = (await queueLocal.getById(ended.queueId))!;
+      expect(queued.operation, ClientTransactionQueueHandler.endCode);
+      expect(queued.payload, containsPair('end', '2026-10-06 10:20:00'));
+    });
+
+    test('a transaction shows the status of its queue item', () async {
+      when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+      await repository.createTransaction(delivery);
+
+      var listed = await local.watchAll().first;
+      expect(listed.single.orderNumber, 'PED-8812');
+      expect(listed.single.images, ['/photos/a.jpg']);
+      expect(listed.single.syncStatus, QueueSyncStatus.incomplete);
+
+      when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+      await queue.releaseQueue();
+
+      listed = await local.watchAll().first;
+      expect(listed.single.syncStatus, QueueSyncStatus.done);
+    });
+
+    test('undoes the transaction when it cannot be enqueued', () async {
+      final failingOutbox = _MockOutbox();
+      when(
+        () => failingOutbox.enqueue(
+          id: any(named: 'id'),
+          operation: any(named: 'operation'),
+          payload: any(named: 'payload'),
+        ),
+      ).thenAnswer((_) async => const Left(CacheFailure(message: 'disk full')));
+
+      final result = await repositoryWith(failingOutbox).createTransaction(
+        delivery,
+      );
+
+      expect(
+        result,
+        const Left<Failure, TransactionEntity>(
+          CacheFailure(message: 'disk full'),
+        ),
+      );
+      expect(await local.watchAll().first, isEmpty);
+    });
+  });
+}

@@ -1,0 +1,233 @@
+{
+    "queueTitle": "Cola de procesamiento",
+    "@queueTitle": {
+        "description": "Título de la página de la cola de procesamiento"
+    },
+    "queueOnline": "Con conexión: la cola se libera automáticamente.",
+    "@queueOnline": {
+        "description": "Aviso de la página de la cola cuando hay internet"
+    },
+    "queueOffline": "Sin conexión: los envíos quedan retenidos en la cola hasta que vuelva la conexión.",
+    "@queueOffline": {
+        "description": "Aviso de la página de la cola sin internet"
+    },
+    "queueReleaseButton": "Liberar cola",
+    "@queueReleaseButton": {
+        "description": "Botón que envía ahora los elementos pendientes"
+    },
+    "queueRetryFailedButton": "Reintentar fallidos",
+    "@queueRetryFailedButton": {
+        "description": "Botón que vuelve a enviar todos los elementos con error"
+    },
+    "queuePurgeDoneButton": "Limpiar procesados",
+    "@queuePurgeDoneButton": {
+        "description": "Botón que borra los elementos procesados"
+    },
+    "queueRetryItem": "Reintentar",
+    "@queueRetryItem": {
+        "description": "Tooltip del botón que reenvía un elemento con error"
+    },
+    "queueEmpty": "No hay elementos en la cola.",
+    "@queueEmpty": {
+        "description": "Se muestra cuando la cola (o el filtro) no tiene elementos"
+    },
+    "queueFilterAll": "Todos ({count})",
+    "@queueFilterAll": {
+        "description": "Filtro que muestra todos los elementos",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "queueStatusIncomplete": "Incompleto",
+    "@queueStatusIncomplete": {
+        "description": "Estado de la cola: esperando ser enviado"
+    },
+    "queueStatusProcessing": "Procesando",
+    "@queueStatusProcessing": {
+        "description": "Estado de la cola: enviándose"
+    },
+    "queueStatusDone": "Procesado",
+    "@queueStatusDone": {
+        "description": "Estado de la cola: aceptado por la API"
+    },
+    "queueStatusError": "Error",
+    "@queueStatusError": {
+        "description": "Estado de la cola: rechazado o sin intentos"
+    },
+    "queueAttempts": "Intentos: {count}",
+    "@queueAttempts": {
+        "description": "Intentos fallidos de un elemento de la cola",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "queueReleaseSummary": "Procesados: {done} · Con error: {failed} · Pendientes: {pending}",
+    "@queueReleaseSummary": {
+        "description": "Resultado de liberar la cola",
+        "placeholders": {
+            "done": {
+                "type": "int"
+            },
+            "failed": {
+                "type": "int"
+            },
+            "pending": {
+                "type": "int"
+            }
+        }
+    },
+    "transactionsTitle": "Transacciones",
+    "@transactionsTitle": {
+        "description": "Título de la página de transacciones"
+    },
+    "transactionsEmpty": "Aún no hay transacciones.",
+    "@transactionsEmpty": {
+        "description": "Se muestra cuando no hay transacciones"
+    },
+    "transactionsAdd": "Nueva transacción",
+    "@transactionsAdd": {
+        "description": "Botón y título del diálogo para crear una transacción"
+    },
+    "transactionStatusLabel": "Tipo",
+    "@transactionStatusLabel": {
+        "description": "Etiqueta del selector del tipo de transacción"
+    },
+    "transactionWorkIdLabel": "Ruta (ID)",
+    "@transactionWorkIdLabel": {
+        "description": "Etiqueta del campo con el id de la ruta"
+    },
+    "transactionOrderNumberLabel": "Pedido",
+    "@transactionOrderNumberLabel": {
+        "description": "Etiqueta del campo número de pedido"
+    },
+    "transactionObservationLabel": "Observación",
+    "@transactionObservationLabel": {
+        "description": "Etiqueta del campo observación"
+    },
+    "transactionWork": "Ruta {workId}",
+    "@transactionWork": {
+        "description": "Ruta a la que pertenece una transacción",
+        "placeholders": {
+            "workId": {
+                "type": "int"
+            }
+        }
+    },
+    "transactionStatusStart": "Inicio de ruta",
+    "@transactionStatusStart": {
+        "description": "Tipo de transacción start"
+    },
+    "transactionStatusEnd": "Cierre de ruta",
+    "@transactionStatusEnd": {
+        "description": "Tipo de transacción end"
+    },
+    "transactionStatusLoad": "Cargue",
+    "@transactionStatusLoad": {
+        "description": "Tipo de transacción load"
+    },
+    "transactionStatusDelivery": "Entrega",
+    "@transactionStatusDelivery": {
+        "description": "Tipo de transacción delivery"
+    },
+    "transactionStatusPartial": "Entrega parcial",
+    "@transactionStatusPartial": {
+        "description": "Tipo de transacción partial"
+    },
+    "transactionStatusPartialRespawn": "Parcial con reintento",
+    "@transactionStatusPartialRespawn": {
+        "description": "Tipo de transacción partial_respawn"
+    },
+    "transactionStatusReject": "Rechazo",
+    "@transactionStatusReject": {
+        "description": "Tipo de transacción reject"
+    },
+    "transactionStatusRespawn": "Reintento",
+    "@transactionStatusRespawn": {
+        "description": "Tipo de transacción respawn"
+    },
+    "transactionErrorInvalidWork": "Escribe un número de ruta válido",
+    "@transactionErrorInvalidWork": {
+        "description": "Error: id de ruta inválido"
+    },
+    "transactionErrorInvalidStatus": "Usa inicio o cierre de ruta para ese tipo",
+    "@transactionErrorInvalidStatus": {
+        "description": "Error: tipo de ruta usado como resultado de pedido"
+    },
+    "transactionSave": "Guardar",
+    "@transactionSave": {
+        "description": "Botón que guarda una transacción"
+    },
+    "transactionCancel": "Cancelar",
+    "@transactionCancel": {
+        "description": "Botón que cierra el diálogo de transacción"
+    },
+    "transactionQueued": "Transacción guardada en la cola de procesamiento.",
+    "@transactionQueued": {
+        "description": "Se muestra después de crear una transacción"
+    },
+    "feedbackTitle": "Reportar problemas",
+    "@feedbackTitle": {
+        "description": "Título de la página de reportes de problemas"
+    },
+    "feedbackEmpty": "Aún no has enviado reportes.",
+    "@feedbackEmpty": {
+        "description": "Se muestra cuando no hay reportes"
+    },
+    "feedbackAdd": "Reportar problema",
+    "@feedbackAdd": {
+        "description": "Botón y título del diálogo para crear un reporte"
+    },
+    "feedbackCategoryLabel": "¿Sobre qué es?",
+    "@feedbackCategoryLabel": {
+        "description": "Etiqueta de la selección de categoría"
+    },
+    "feedbackCategoryBug": "Error",
+    "@feedbackCategoryBug": {
+        "description": "Categoría: algo no funciona"
+    },
+    "feedbackCategorySuggestion": "Sugerencia",
+    "@feedbackCategorySuggestion": {
+        "description": "Categoría: idea para mejorar"
+    },
+    "feedbackCategoryContent": "Contenido",
+    "@feedbackCategoryContent": {
+        "description": "Categoría: problema con una canción o artista"
+    },
+    "feedbackCategoryOther": "Otro",
+    "@feedbackCategoryOther": {
+        "description": "Categoría: cualquier otra cosa"
+    },
+    "feedbackDescriptionLabel": "Cuéntanos qué pasó",
+    "@feedbackDescriptionLabel": {
+        "description": "Etiqueta del campo de descripción del reporte"
+    },
+    "feedbackDescriptionTooShort": "Escribe al menos {min} caracteres",
+    "@feedbackDescriptionTooShort": {
+        "description": "Error de validación: descripción del reporte muy corta",
+        "placeholders": {
+            "min": {
+                "type": "int"
+            }
+        }
+    },
+    "feedbackSend": "Enviar",
+    "@feedbackSend": {
+        "description": "Botón que envía un reporte"
+    },
+    "feedbackQueued": "Reporte guardado en la cola de procesamiento.",
+    "@feedbackQueued": {
+        "description": "Se muestra después de crear un reporte"
+    },
+    "feedbackRetry": "Reintentar",
+    "@feedbackRetry": {
+        "description": "Botón para volver a leer los reportes tras un error"
+    },
+    "validationDescriptionRequired": "Escribe una descripción",
+    "@validationDescriptionRequired": {
+        "description": "Error de validación: descripción vacía"
+    }
+}

@@ -1,0 +1,94 @@
+// Runs the dependency injection of the processing queue and its example
+// features on top of test doubles of the core dependencies, and
+// resolves what the app resolves at runtime. get_it only fails when a
+// dependency is resolved, so a wrong registration (e.g. a BLoC that asks
+// for a contract registered under its implementation type) is caught
+// here and not on a device.
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+
+import '../../helpers/helpers.dart';
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+void main() {
+  late AppDatabase database;
+
+  setUp(() async {
+    database = await openTestDatabase();
+    getIt
+      ..registerSingleton<NetworkInfoInter>(_MockNetworkInfo())
+      ..registerSingleton(ApiClient())
+      ..registerSingleton<AppDatabase>(database)
+      ..registerSingleton<UnitOfWork>(database)
+      ..registerSingleton(QueueHandlerRegistry());
+    // Same order as initDependencies(); the order must not matter.
+    initTransactionsDependencies();
+    initFeedbackDependencies();
+    initProcessingQueueDependencies();
+  });
+
+  tearDown(() async {
+    await getIt.reset();
+    await database.close();
+  });
+
+  test('every BLoC of the features can be created', () async {
+    final blocs = [
+      getIt<ProcessingQueueBloc>(),
+      getIt<TransactionsBloc>(),
+      getIt<FeedbackBloc>(),
+    ];
+    for (final bloc in blocs) {
+      await bloc.close();
+    }
+  });
+
+  test('the outbox the features enqueue through is the queue', () {
+    expect(
+      getIt<QueueOutboxInter>(),
+      same(getIt<ProcessingQueueRepositoryInter>()),
+    );
+    expect(getIt<TransactionsRepositoryInter>(), isNotNull);
+    expect(getIt<FeedbackRepositoryInter>(), isNotNull);
+    // The queue sends the items through the remote data sources.
+    expect(getIt<TransactionsRemoteDataSourceInter>(), isNotNull);
+    expect(getIt<FeedbackRemoteDataSourceInter>(), isNotNull);
+  });
+
+  test('the sync service can be created', () {
+    expect(getIt<QueueSyncService>().isRunning, isFalse);
+  });
+
+  test('every feature registered the handler of its operation', () {
+    final registry = getIt<QueueHandlerRegistry>();
+
+    expect(
+      registry.handlerFor(StoreTransactionQueueHandler.code),
+      isA<StoreTransactionQueueHandler>(),
+    );
+    for (final code in [
+      ClientTransactionQueueHandler.startCode,
+      ClientTransactionQueueHandler.endCode,
+    ]) {
+      expect(
+        registry.handlerFor(code),
+        isA<ClientTransactionQueueHandler>(),
+        reason: code,
+      );
+    }
+    expect(
+      registry.handlerFor(CreateFeedbackQueueHandler.code),
+      isA<CreateFeedbackQueueHandler>(),
+    );
+  });
+}

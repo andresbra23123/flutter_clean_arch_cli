@@ -1,0 +1,47 @@
+// ─────────────────────────────────────────────────────────────
+// transactionsSchema
+// Tables of the transactions feature and their migrations (rules in
+// core/database/feature_schema.dart). Opened by AppDatabase, which gets
+// it from core/di.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+
+/// Schema of the transactions feature. Position + 1 is its version.
+const FeatureSchema transactionsSchema = FeatureSchema(
+  name: 'transactions',
+  migrations: [_v1],
+);
+
+/// v1: the transactions recorded on the device.
+///
+/// `queue_id` has no foreign key on purpose: the queue purges the items
+/// it already sent, while their transactions stay.
+Future<void> _v1(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE transactions (
+      id TEXT PRIMARY KEY,
+      work_id INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      summary_id INTEGER,
+      workcode TEXT,
+      order_number TEXT,
+      expedition TEXT,
+      payments TEXT NOT NULL DEFAULT '[]',
+      delivery TEXT,
+      observation TEXT,
+      images TEXT NOT NULL DEFAULT '[]',
+      firm TEXT,
+      operative_center TEXT,
+      started_at INTEGER,
+      ended_at INTEGER,
+      latitude TEXT,
+      longitude TEXT,
+      created_at INTEGER NOT NULL,
+      queue_id TEXT NOT NULL UNIQUE
+    )
+  ''');
+  await db.execute(
+    'CREATE INDEX idx_transactions_work ON transactions (work_id, status)',
+  );
+}

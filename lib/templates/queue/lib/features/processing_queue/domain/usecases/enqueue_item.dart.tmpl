@@ -1,0 +1,59 @@
+// ─────────────────────────────────────────────────────────────
+// EnqueueItemUseCase
+// Stores an operation in the processing queue. It is the only way an
+// operation reaches the API: with or without internet, everything
+// goes through the queue first.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Adds an operation to the queue through the
+/// [ProcessingQueueRepositoryInter].
+class EnqueueItemUseCaseImpl
+    implements UseCaseInter<QueueItemEntity, EnqueueParams> {
+  /// Creates the use case with the [repository] it uses.
+  EnqueueItemUseCaseImpl({required this.repository});
+
+  /// Source of the processing_queue data.
+  final ProcessingQueueRepositoryInter repository;
+
+  /// Returns the stored item, or a `Failure` if it could not be stored.
+  @override
+  FutureEither<QueueItemEntity> call(EnqueueParams params) {
+    return repository.enqueueItem(params);
+  }
+}
+
+/// Operation to add to the queue.
+class EnqueueParams extends Equatable {
+  /// Creates the parameters.
+  const EnqueueParams({
+    required this.operation,
+    required this.payload,
+    this.id,
+    this.priority,
+  });
+
+  /// Code of what the item does: an operation registered in the
+  /// `QueueHandlerRegistry`. Where and how it is sent is decided when the
+  /// queue releases it.
+  final String operation;
+
+  /// Data of the operation.
+  final Map<String, dynamic> payload;
+
+  /// Id for the item. Generated when `null`; pass one to link the item to
+  /// a local record before it is stored.
+  final String? id;
+
+  /// Priority for the item. When `null`, the one of the `QueueHandler` of
+  /// [operation] is used ([QueuePriority.normal] without a handler).
+  final QueuePriority? priority;
+
+  @override
+  List<Object?> get props => [operation, payload, id, priority];
+}

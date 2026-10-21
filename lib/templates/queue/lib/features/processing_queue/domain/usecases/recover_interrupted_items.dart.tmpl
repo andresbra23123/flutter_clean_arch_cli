@@ -1,0 +1,27 @@
+// ─────────────────────────────────────────────────────────────
+// RecoverInterruptedItemsUseCase
+// Puts back in the queue the items left in processing when the app
+// was closed while sending them. Called by QueueSyncService on start.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Runs "recover interrupted items" through the [ProcessingQueueRepositoryInter].
+class RecoverInterruptedItemsUseCaseImpl
+    implements UseCaseInter<int, NoParams> {
+  /// Creates the use case with the [repository] it uses.
+  RecoverInterruptedItemsUseCaseImpl({required this.repository});
+
+  /// Source of the processing_queue data.
+  final ProcessingQueueRepositoryInter repository;
+
+  /// Returns how many items were put back, or a [Failure] if the queue
+  /// could not be updated.
+  @override
+  FutureEither<int> call(NoParams params) {
+    return repository.recoverInterruptedItems();
+  }
+}

@@ -1,0 +1,16 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackErrorCodes
+// Codes of the ValidationFailures returned by the feedback use cases.
+// The presentation layer can map each one to a translated message.
+// ─────────────────────────────────────────────────────────────
+
+/// Business rules a new problem report can break.
+abstract final class FeedbackErrorCodes {
+  /// The description is shorter than
+  /// `SendFeedbackUseCaseImpl.minDescriptionLength`.
+  static const String descriptionTooShort = 'descriptionTooShort';
+
+  /// The description is longer than
+  /// `SendFeedbackUseCaseImpl.maxDescriptionLength`.
+  static const String descriptionTooLong = 'descriptionTooLong';
+}

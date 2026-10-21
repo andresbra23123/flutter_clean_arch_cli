@@ -1,0 +1,25 @@
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Summary of one release of the queue.
+class QueueReleaseResult extends Equatable {
+  /// Creates the summary.
+  const QueueReleaseResult({
+    this.done = 0,
+    this.failed = 0,
+    this.pending = 0,
+  });
+
+  /// Items accepted by the API.
+  final int done;
+
+  /// Items that moved to [QueueSyncStatus.error].
+  final int failed;
+
+  /// Items still [QueueSyncStatus.incomplete] after the release (no
+  /// connection or a retryable failure).
+  final int pending;
+
+  @override
+  List<Object?> get props => [done, failed, pending];
+}

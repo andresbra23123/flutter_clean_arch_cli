@@ -1,0 +1,49 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionStatus
+// What a transaction records about a work (route) or one of its
+// orders. The codes are the ones the API expects in `status`.
+// ─────────────────────────────────────────────────────────────
+
+/// Kind of a transaction.
+enum TransactionStatus {
+  /// The driver started the route (work).
+  start('start'),
+
+  /// The driver closed the route (work).
+  end('end'),
+
+  /// Load of the vehicle confirmed.
+  load('load'),
+
+  /// Order delivered in full.
+  delivery('delivery'),
+
+  /// Order partially delivered.
+  partial('partial'),
+
+  /// Partial delivery that will be tried again.
+  partialRespawn('partial_respawn'),
+
+  /// Order rejected by the client.
+  reject('reject'),
+
+  /// Order to be delivered again later.
+  respawn('respawn');
+
+  const TransactionStatus(this.code);
+
+  /// Value sent to the API and stored in the database. Never change it.
+  final String code;
+
+  /// Whether it marks the start or the end of the route, instead of the
+  /// result of an order.
+  bool get isRouteEvent => this == start || this == end;
+
+  /// Status stored as [code]; `null` when this version does not know it.
+  static TransactionStatus? fromCode(String code) {
+    for (final status in values) {
+      if (status.code == code) return status;
+    }
+    return null;
+  }
+}

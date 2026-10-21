@@ -1,0 +1,134 @@
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRepository extends Mock implements TransactionsRepositoryInter {}
+
+void main() {
+  late _MockRepository repository;
+
+  final stored = TransactionEntity(
+    id: 'tx-1',
+    workId: 120,
+    status: TransactionStatus.delivery,
+    createdAt: DateTime(2026),
+    queueId: 'q-1',
+  );
+
+  String? codeOf(EitherOr<TransactionEntity> result) => result.fold(
+    (failure) => (failure as ValidationFailure).code,
+    (_) => null,
+  );
+
+  setUpAll(() {
+    registerFallbackValue(
+      const CreateTransactionParams(
+        workId: 1,
+        status: TransactionStatus.delivery,
+      ),
+    );
+    registerFallbackValue(const RouteEventParams(workId: 1));
+  });
+
+  setUp(() {
+    repository = _MockRepository();
+    when(
+      () => repository.createTransaction(any()),
+    ).thenAnswer((_) async => Right(stored));
+    when(
+      () => repository.startTransaction(any()),
+    ).thenAnswer((_) async => Right(stored));
+    when(
+      () => repository.endTransaction(any()),
+    ).thenAnswer((_) async => Right(stored));
+  });
+
+  group('CreateTransactionUseCaseImpl', () {
+    test('passes the texts trimmed, blank ones as null', () async {
+      final result = await CreateTransactionUseCaseImpl(repository: repository)(
+        const CreateTransactionParams(
+          workId: 120,
+          status: TransactionStatus.reject,
+          orderNumber: ' PED-1 ',
+          observation: '   ',
+        ),
+      );
+
+      expect(result, Right<Failure, TransactionEntity>(stored));
+      verify(
+        () => repository.createTransaction(
+          const CreateTransactionParams(
+            workId: 120,
+            status: TransactionStatus.reject,
+            orderNumber: 'PED-1',
+          ),
+        ),
+      ).called(1);
+    });
+
+    test('rejects a work id that is not positive', () async {
+      final result = await CreateTransactionUseCaseImpl(repository: repository)(
+        const CreateTransactionParams(
+          workId: 0,
+          status: TransactionStatus.delivery,
+        ),
+      );
+
+      expect(codeOf(result), TransactionErrorCodes.invalidWork);
+      verifyNever(() => repository.createTransaction(any()));
+    });
+
+    test('route events have their own use cases', () async {
+      for (final status in [TransactionStatus.start, TransactionStatus.end]) {
+        final result = await CreateTransactionUseCaseImpl(
+          repository: repository,
+        )(CreateTransactionParams(workId: 1, status: status));
+
+        expect(codeOf(result), TransactionErrorCodes.invalidStatus);
+      }
+      verifyNever(() => repository.createTransaction(any()));
+    });
+
+    test('any result of an order is accepted', () async {
+      final result = await CreateTransactionUseCaseImpl(repository: repository)(
+        const CreateTransactionParams(
+          workId: 1,
+          status: TransactionStatus.delivery,
+        ),
+      );
+
+      expect(result.isRight(), isTrue);
+    });
+  });
+
+  group('route events', () {
+    test('start and end reach their repository method', () async {
+      const params = RouteEventParams(workId: 120);
+
+      await StartTransactionUseCaseImpl(repository: repository)(params);
+      await EndTransactionUseCaseImpl(repository: repository)(params);
+
+      verify(() => repository.startTransaction(params)).called(1);
+      verify(() => repository.endTransaction(params)).called(1);
+    });
+
+    test('reject a work id that is not positive', () async {
+      const params = RouteEventParams(workId: -1);
+
+      final started = await StartTransactionUseCaseImpl(
+        repository: repository,
+      )(params);
+      final ended = await EndTransactionUseCaseImpl(
+        repository: repository,
+      )(params);
+
+      expect(codeOf(started), TransactionErrorCodes.invalidWork);
+      expect(codeOf(ended), TransactionErrorCodes.invalidWork);
+      verifyNever(() => repository.startTransaction(any()));
+      verifyNever(() => repository.endTransaction(any()));
+    });
+  });
+}

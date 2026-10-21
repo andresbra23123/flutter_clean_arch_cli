@@ -1,0 +1,101 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/helpers.dart';
+
+void main() {
+  late FakeApi api;
+  late TransactionsRemoteDataSourceImpl dataSource;
+  late Directory tempDir;
+
+  setUp(() {
+    api = FakeApi();
+    dataSource = TransactionsRemoteDataSourceImpl(apiClient: api.client);
+    tempDir = Directory.systemTemp.createTempSync('transactions_remote_test');
+  });
+
+  tearDown(() => tempDir.deleteSync(recursive: true));
+
+  File file(String name) =>
+      File('${tempDir.path}/$name')..writeAsBytesSync([1, 2]);
+
+  group('queued', () {
+    test(
+      'sendTransaction posts a multipart form with photos and signature',
+      () async {
+        final a = file('a.jpg');
+        final b = file('b.jpg');
+        final firm = file('firm.png');
+        api.answer = {'id': 991};
+
+        final answer = await dataSource.sendTransaction('queue-id', {
+          'id': 'tx-1',
+          'images': jsonEncode([a.path, b.path]),
+          'firm': firm.path,
+        });
+
+        final request = api.requests.single;
+        expect(request.method, 'POST');
+        expect(request.path, TransactionsEndpoints.store);
+        expect(request.headers[ApiClient.idempotencyHeader], 'queue-id');
+        expect(
+          request.sendTimeout,
+          TransactionsRemoteDataSourceImpl.uploadTimeout,
+        );
+        final form = request.data as FormData;
+        expect(form.files.map((f) => (f.key, f.value.filename)), [
+          ('images[]', 'a.jpg'),
+          ('images[]', 'b.jpg'),
+          ('images[]', 'firm.png'),
+        ]);
+        expect(answer, {'id': 991});
+      },
+    );
+
+    test('sendTransaction without photos sends the plain body', () async {
+      const payload = {'id': 'tx-1', 'images': '[]', 'firm': null};
+
+      await dataSource.sendTransaction('queue-id', payload);
+
+      expect(api.requests.single.data, payload);
+    });
+
+    test('sendRouteEvent posts the route event to /client', () async {
+      await dataSource.sendRouteEvent('queue-id', const {'status': 'start'});
+
+      final request = api.requests.single;
+      expect(request.method, 'POST');
+      expect(request.path, TransactionsEndpoints.client);
+      expect(request.data, {'status': 'start'});
+      expect(request.headers[ApiClient.idempotencyHeader], 'queue-id');
+    });
+
+    test('without an answer from the API it is a NetworkException', () async {
+      api.fail = DioExceptionType.connectionError;
+
+      await expectLater(
+        dataSource.sendRouteEvent('queue-id', const {}),
+        throwsA(isA<NetworkException>()),
+      );
+    });
+
+    test('an error status is a ServerException with its code', () async {
+      api
+        ..fail = DioExceptionType.badResponse
+        ..status = 422;
+
+      await expectLater(
+        dataSource.sendTransaction('queue-id', const {}),
+        throwsA(
+          isA<ServerException>().having((e) => e.statusCode, 'status', 422),
+        ),
+      );
+    });
+  });
+}

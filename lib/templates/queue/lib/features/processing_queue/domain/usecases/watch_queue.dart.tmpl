@@ -1,0 +1,25 @@
+// ─────────────────────────────────────────────────────────────
+// WatchQueueUseCase
+// Streams the processing queue as Either (UseCaseInterStream).
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Streams the whole processing queue, newest first.
+class WatchQueueUseCaseImpl
+    implements UseCaseInterStream<List<QueueItemEntity>, NoParams> {
+  /// Creates the use case with the [repository] it reads from.
+  WatchQueueUseCaseImpl({required this.repository});
+
+  /// Source of the processing_queue data.
+  final ProcessingQueueRepositoryInter repository;
+
+  /// Emits the queue now and after every change, or a `Failure` when it
+  /// cannot be read.
+  @override
+  StreamEither<List<QueueItemEntity>> call(NoParams params) =>
+      repository.watchQueue();
+}

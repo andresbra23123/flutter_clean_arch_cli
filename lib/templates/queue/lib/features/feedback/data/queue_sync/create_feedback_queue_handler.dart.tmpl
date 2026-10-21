@@ -1,0 +1,33 @@
+// ─────────────────────────────────────────────────────────────
+// CreateFeedbackQueueHandler
+// How a queued problem report reaches the API: through
+// FeedbackRemoteDataSourceInter.sendFeedback. Registered in the
+// QueueHandlerRegistry by initFeedbackDependencies().
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+
+/// Sends a report stored by `FeedbackRepositoryImpl`.
+class CreateFeedbackQueueHandler extends QueueHandler {
+  /// Creates the handler.
+  const CreateFeedbackQueueHandler({required this.remoteDataSource});
+
+  /// Code stored with every queued report. Never change it: items
+  /// already queued on the devices depend on it.
+  static const String code = 'feedback.create';
+
+  /// Sends the reports to the API.
+  final FeedbackRemoteDataSourceInter remoteDataSource;
+
+  @override
+  String get operation => code;
+
+  /// Problem reports wait until the business operations are sent.
+  @override
+  QueuePriority get priority => QueuePriority.low;
+
+  @override
+  Future<Object?> send(String idempotencyKey, Map<String, dynamic> payload) =>
+      remoteDataSource.sendFeedback(idempotencyKey, payload);
+}

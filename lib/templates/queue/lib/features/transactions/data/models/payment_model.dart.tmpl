@@ -1,0 +1,50 @@
+// ─────────────────────────────────────────────────────────────
+// PaymentModel
+// JSON serialization of PaymentEntity, as the API writes it. Generated
+// by `flutter_clean_arch model` and made tolerant: the API sends the
+// amounts and ids as strings or numbers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// [PaymentEntity] with JSON serialization for the API and storage.
+class PaymentModel extends PaymentEntity {
+  /// Creates the payment model.
+  const PaymentModel({
+    required super.method,
+    required super.paid,
+    super.idAccount,
+    super.date,
+  });
+
+  /// Creates a [PaymentModel] from a JSON map.
+  factory PaymentModel.fromJson(Map<String, dynamic> json) {
+    return PaymentModel(
+      method: json['method']?.toString() ?? '',
+      paid: json['paid']?.toString() ?? '',
+      idAccount: json['id_account']?.toString(),
+      date: ApiDateFormat.tryParse(json['date']),
+    );
+  }
+
+  /// Creates a [PaymentModel] with the values of [entity].
+  factory PaymentModel.fromEntity(PaymentEntity entity) {
+    return PaymentModel(
+      method: entity.method,
+      paid: entity.paid,
+      idAccount: entity.idAccount,
+      date: entity.date,
+    );
+  }
+
+  /// Converts this model into a JSON map.
+  Map<String, dynamic> toJson() {
+    return {
+      'method': method,
+      'paid': paid,
+      'id_account': idAccount,
+      'date': date == null ? null : ApiDateFormat.format(date!),
+    };
+  }
+}

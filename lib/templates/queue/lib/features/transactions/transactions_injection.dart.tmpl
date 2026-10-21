@@ -1,0 +1,76 @@
+// ─────────────────────────────────────────────────────────────
+// Transactions dependency injection
+// Registers every dependency of the transactions feature.
+// Called from initDependencies() in core/di/injection_container.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+import 'package:{{package}}/features/transactions/presentation/presentation.dart';
+
+/// Registers the BLoC, use cases, repository, data sources and queue
+/// handlers of the transactions feature.
+///
+/// Needs `ApiClient`, `AppDatabase`, `UnitOfWork`, `QueueOutboxInter` and the
+/// `QueueHandlerRegistry`. The transactions reach the API only through
+/// the processing queue: [StoreTransactionQueueHandler] and
+/// [ClientTransactionQueueHandler] send them with the remote data source.
+/// Contracts are registered with their `Inter` type, so the
+/// implementations can be swapped (e.g. for mocks in tests).
+void initTransactionsDependencies() {
+  getIt
+    // ── Presentation ────────────────────────────────────────
+    // Factory: a new BLoC every time a screen asks for one.
+    ..registerFactory(
+      () => TransactionsBloc(
+        watchTransactions: getIt(),
+        createTransaction: getIt(),
+        startTransaction: getIt(),
+        endTransaction: getIt(),
+      ),
+    )
+    // flutter_clean_arch:blocs
+    // ── Domain ──────────────────────────────────────────────
+    // Lazy singletons: created once, the first time they are needed.
+    ..registerLazySingleton(
+      () => WatchTransactionsUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => CreateTransactionUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => StartTransactionUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => EndTransactionUseCaseImpl(repository: getIt()),
+    )
+    // flutter_clean_arch:usecases
+    // ── Data ────────────────────────────────────────────────
+    ..registerLazySingleton<TransactionsRepositoryInter>(
+      () => TransactionsRepositoryImpl(
+        localDataSource: getIt(),
+        outbox: getIt(),
+        unitOfWork: getIt(),
+      ),
+    )
+    ..registerLazySingleton<TransactionsRemoteDataSourceInter>(
+      () => TransactionsRemoteDataSourceImpl(apiClient: getIt()),
+    )
+    ..registerLazySingleton<TransactionsLocalDataSourceInter>(
+      () => TransactionsLocalDataSourceImpl(database: getIt()),
+    );
+
+  // How the queue sends the transactions: the result of an order to
+  // /store, the start and end of a route to /client.
+  getIt<QueueHandlerRegistry>()
+    ..register(
+      StoreTransactionQueueHandler(
+        remoteDataSource: getIt(),
+        localDataSource: getIt(),
+      ),
+    )
+    ..register(ClientTransactionQueueHandler.start(remoteDataSource: getIt()))
+    ..register(ClientTransactionQueueHandler.end(remoteDataSource: getIt()));
+}

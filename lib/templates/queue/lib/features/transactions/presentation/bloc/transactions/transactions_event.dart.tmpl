@@ -1,0 +1,70 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsEvent
+// Every event (user action or trigger) that TransactionsBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'transactions_bloc.dart';
+
+/// Base class for all transactions events.
+abstract class TransactionsEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const TransactionsEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Starts listening to the transactions. Dispatched when the screen opens.
+class TransactionsSubscriptionRequested extends TransactionsEvent {
+  /// Creates the event.
+  const TransactionsSubscriptionRequested();
+}
+
+/// The user recorded the result of an order.
+class TransactionCreateRequested extends TransactionsEvent {
+  /// Creates the event.
+  const TransactionCreateRequested({
+    required this.workId,
+    required this.status,
+    this.orderNumber,
+    this.observation,
+  });
+
+  /// Work (route) of the order.
+  final int workId;
+
+  /// Result of the order.
+  final TransactionStatus status;
+
+  /// Order number.
+  final String? orderNumber;
+
+  /// Observation of the driver.
+  final String? observation;
+
+  @override
+  List<Object?> get props => [
+    workId,
+    status,
+    orderNumber,
+    observation,
+  ];
+}
+
+/// The user started or closed a route.
+class TransactionRouteEventRequested extends TransactionsEvent {
+  /// Creates the event; [status] is `start` or `end`.
+  const TransactionRouteEventRequested({
+    required this.workId,
+    required this.status,
+  });
+
+  /// Work (route).
+  final int workId;
+
+  /// [TransactionStatus.start] or [TransactionStatus.end].
+  final TransactionStatus status;
+
+  @override
+  List<Object?> get props => [workId, status];
+}

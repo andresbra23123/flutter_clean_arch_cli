@@ -1,0 +1,69 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueueLocalDataSourceInter (contract)
+// Defines how the processing queue is stored on the device.
+// The repository depends on this contract, never on the implementation,
+// so the storage technology can change without touching other layers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/processing_queue/data/data.dart';
+
+/// Local storage contract for the processing queue.
+///
+/// Implementations throw a [CacheException] when the storage fails. The
+/// repository catches it and converts it into a `CacheFailure`.
+abstract interface class ProcessingQueueLocalDataSourceInter {
+  /// Emits every item (newest first) now and after every change.
+  Stream<List<QueueItemModel>> watchAll();
+
+  /// Stores [item].
+  Future<void> insert(QueueItemModel item);
+
+  /// Returns the item with [id], or `null` if it does not exist.
+  Future<QueueItemModel?> getById(String id);
+
+  /// Returns up to [limit] [QueueSyncStatus.incomplete] items, oldest first
+  /// (FIFO), skipping the ids in [excludeIds].
+  Future<List<QueueItemModel>> fetchPending({
+    int limit = 50,
+    Set<String> excludeIds = const {},
+  });
+
+  /// Counts the items in [status].
+  Future<int> countByStatus(QueueSyncStatus status);
+
+  /// Moves the item to [QueueSyncStatus.processing].
+  Future<void> markProcessing(String id);
+
+  /// Moves the item to [QueueSyncStatus.done].
+  Future<void> markDone(String id);
+
+  /// Moves the item back to [QueueSyncStatus.incomplete] after a retryable
+  /// failure, saving its new [attempts] and the [error].
+  Future<void> markIncomplete(
+    String id, {
+    required int attempts,
+    required String error,
+  });
+
+  /// Moves the item to [QueueSyncStatus.error].
+  Future<void> markError(
+    String id, {
+    required int attempts,
+    required String error,
+  });
+
+  /// Moves the [QueueSyncStatus.error] items with the given [ids] (or all of
+  /// them when `null`) back to [QueueSyncStatus.incomplete] with no attempts.
+  /// Returns how many were moved.
+  Future<int> resetFailed({Set<String>? ids});
+
+  /// Moves every [QueueSyncStatus.processing] item back to
+  /// [QueueSyncStatus.incomplete]. Returns how many were moved.
+  Future<int> resetProcessing();
+
+  /// Deletes the [QueueSyncStatus.done] items processed before [before].
+  /// Returns how many were deleted.
+  Future<int> deleteDone({required DateTime before});
+}

@@ -1,0 +1,162 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockWatchQueue extends Mock implements WatchQueueUseCaseImpl {}
+
+class _MockWatchConnection extends Mock implements WatchConnectionUseCaseImpl {}
+
+class _MockReleaseQueue extends Mock implements ReleaseQueueUseCaseImpl {}
+
+class _MockRetryQueueItem extends Mock implements RetryQueueItemUseCaseImpl {}
+
+class _MockRetryFailedItems extends Mock
+    implements RetryFailedItemsUseCaseImpl {}
+
+class _MockPurgeDoneItems extends Mock implements PurgeDoneItemsUseCaseImpl {}
+
+void main() {
+  late _MockWatchQueue watchQueue;
+  late _MockWatchConnection watchConnection;
+  late _MockReleaseQueue releaseQueue;
+  late _MockRetryQueueItem retryQueueItem;
+  late _MockRetryFailedItems retryFailedItems;
+  late _MockPurgeDoneItems purgeDoneItems;
+
+  final now = DateTime(2026, 10, 6);
+  QueueItemEntity item(String id, QueueSyncStatus status) => QueueItemEntity(
+    id: id,
+    operation: 'transaction.create',
+    payload: const {},
+    status: status,
+    createdAt: now,
+    updatedAt: now,
+  );
+
+  final items = [
+    item('a', QueueSyncStatus.incomplete),
+    item('b', QueueSyncStatus.error),
+    item('c', QueueSyncStatus.done),
+  ];
+
+  setUpAll(() => registerFallbackValue(const NoParams()));
+
+  setUp(() {
+    watchQueue = _MockWatchQueue();
+    watchConnection = _MockWatchConnection();
+    releaseQueue = _MockReleaseQueue();
+    retryQueueItem = _MockRetryQueueItem();
+    retryFailedItems = _MockRetryFailedItems();
+    purgeDoneItems = _MockPurgeDoneItems();
+  });
+
+  ProcessingQueueBloc build() => ProcessingQueueBloc(
+    watchQueue: watchQueue,
+    watchConnection: watchConnection,
+    releaseQueue: releaseQueue,
+    retryQueueItem: retryQueueItem,
+    retryFailedItems: retryFailedItems,
+    purgeDoneItems: purgeDoneItems,
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'shows the queue and the connection',
+    setUp: () {
+      when(
+        () => watchQueue(any()),
+      ).thenAnswer((_) => Stream.value(Right(items)));
+      when(
+        () => watchConnection(any()),
+      ).thenAnswer((_) => Stream.value(const Right(false)));
+    },
+    build: build,
+    act: (bloc) => bloc.add(const QueueSubscriptionRequested()),
+    verify: (bloc) {
+      expect(bloc.state.status, ProcessingQueueViewStatus.ready);
+      expect(bloc.state.items, items);
+      expect(bloc.state.isConnected, isFalse);
+      expect(bloc.state.countOf(QueueSyncStatus.error), 1);
+    },
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'shows the failure when the queue cannot be read',
+    setUp: () {
+      when(() => watchQueue(any())).thenAnswer(
+        (_) => Stream.value(const Left(CacheFailure(message: 'db error'))),
+      );
+      when(
+        () => watchConnection(any()),
+      ).thenAnswer((_) => Stream.value(const Right(true)));
+    },
+    build: build,
+    act: (bloc) => bloc.add(const QueueSubscriptionRequested()),
+    verify: (bloc) {
+      expect(bloc.state.status, ProcessingQueueViewStatus.failure);
+      expect(bloc.state.failureMessage, 'db error');
+      expect(bloc.state.isConnected, isTrue);
+    },
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'filters the items by status',
+    build: build,
+    seed: () => ProcessingQueueState(
+      status: ProcessingQueueViewStatus.ready,
+      items: items,
+    ),
+    act: (bloc) => bloc.add(const QueueFilterChanged(QueueSyncStatus.error)),
+    verify: (bloc) => expect(bloc.state.visibleItems, [items[1]]),
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'releases the queue and exposes the summary',
+    setUp: () => when(() => releaseQueue(any())).thenAnswer(
+      (_) async => const Right(QueueReleaseResult(done: 2, pending: 1)),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(const QueueReleaseRequested()),
+    expect: () => const [
+      ProcessingQueueState(isReleasing: true),
+      ProcessingQueueState(
+        releaseResult: QueueReleaseResult(done: 2, pending: 1),
+      ),
+    ],
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'shows the failure of a retry',
+    setUp: () => when(() => retryQueueItem(any())).thenAnswer(
+      (_) async => const Left(NotFoundFailure(message: 'not found')),
+    ),
+    build: build,
+    act: (bloc) => bloc.add(const QueueItemRetryRequested('x')),
+    expect: () => const [ProcessingQueueState(failureMessage: 'not found')],
+    verify: (_) => verify(() => retryQueueItem('x')).called(1),
+  );
+
+  blocTest<ProcessingQueueBloc, ProcessingQueueState>(
+    'retries every failed item and purges the processed ones',
+    setUp: () {
+      when(
+        () => retryFailedItems(any()),
+      ).thenAnswer((_) async => const Right(1));
+      when(
+        () => purgeDoneItems(Duration.zero),
+      ).thenAnswer((_) async => const Right(1));
+    },
+    build: build,
+    act: (bloc) => bloc
+      ..add(const QueueFailedRetryRequested())
+      ..add(const QueueDonePurgeRequested()),
+    verify: (_) {
+      verify(() => retryFailedItems(any())).called(1);
+      verify(() => purgeDoneItems(Duration.zero)).called(1);
+    },
+  );
+}

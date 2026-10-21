@@ -1,0 +1,75 @@
+// ─────────────────────────────────────────────────────────────
+// QueueItemEntity
+// One operation waiting in the processing queue to be sent to the API.
+// Every transaction is stored here first, with or without internet,
+// and the queue releases it when there is a connection.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// An operation in the processing queue.
+class QueueItemEntity extends Equatable {
+  /// Creates a queue item.
+  const QueueItemEntity({
+    required this.id,
+    required this.operation,
+    required this.payload,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    this.priority = QueuePriority.normal,
+    this.attempts = 0,
+    this.lastError,
+    this.processedAt,
+  });
+
+  /// Unique identifier (uuid). Sent as the `Idempotency-Key` header, so
+  /// the API can ignore duplicates.
+  final String id;
+
+  /// Code of what the item does (e.g. `transaction.create`). The feature
+  /// that registered it builds and sends the request when the item is
+  /// released. When nobody registered the code (an item stored by another
+  /// version of the app), the item moves to [QueueSyncStatus.error].
+  final String operation;
+
+  /// Data of the operation.
+  final Map<String, dynamic> payload;
+
+  /// Current state in the queue.
+  final QueueSyncStatus status;
+
+  /// How soon it is sent: higher priorities go first.
+  final QueuePriority priority;
+
+  /// How many times sending it failed.
+  final int attempts;
+
+  /// Message of the last failure, if any.
+  final String? lastError;
+
+  /// When it was enqueued. Items of the same [priority] are released in
+  /// this order (FIFO).
+  final DateTime createdAt;
+
+  /// Last status change.
+  final DateTime updatedAt;
+
+  /// When it reached [QueueSyncStatus.done].
+  final DateTime? processedAt;
+
+  @override
+  List<Object?> get props => [
+    id,
+    operation,
+    payload,
+    status,
+    priority,
+    attempts,
+    lastError,
+    createdAt,
+    updatedAt,
+    processedAt,
+  ];
+}

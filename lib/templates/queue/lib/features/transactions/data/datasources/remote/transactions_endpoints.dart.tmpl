@@ -1,0 +1,16 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsEndpoints
+// Paths of the work transactions API, relative to the base URL. The
+// feature owns them: core/api knows no feature.
+// ─────────────────────────────────────────────────────────────
+
+/// Paths of `/works/transactions`.
+abstract final class TransactionsEndpoints {
+  static const String _base = '/works/transactions';
+
+  /// Records the result of an order (multipart, with photos).
+  static const String store = '$_base/store';
+
+  /// Records the start or the end of a route.
+  static const String client = '$_base/client';
+}

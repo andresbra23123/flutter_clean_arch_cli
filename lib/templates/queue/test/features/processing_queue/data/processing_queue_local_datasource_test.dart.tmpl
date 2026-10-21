@@ -1,0 +1,161 @@
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../../helpers/helpers.dart';
+
+void main() {
+  late AppDatabase database;
+  late ProcessingQueueLocalDataSourceImpl dataSource;
+
+  QueueItemModel item(String id, {required int createdAt}) {
+    final created = DateTime.fromMillisecondsSinceEpoch(createdAt);
+    return QueueItemModel(
+      id: id,
+      operation: 'transaction.create',
+      payload: {'id': id, 'amount': 10.5},
+      status: QueueSyncStatus.incomplete,
+      createdAt: created,
+      updatedAt: created,
+    );
+  }
+
+  setUp(() async {
+    database = await openTestDatabase();
+    dataSource = ProcessingQueueLocalDataSourceImpl(database: database);
+  });
+
+  tearDown(() => database.close());
+
+  test('stores and reads an item with its payload', () async {
+    final stored = item('a', createdAt: 1000);
+    await dataSource.insert(stored);
+
+    expect(await dataSource.getById('a'), stored);
+    expect(await dataSource.getById('missing'), isNull);
+  });
+
+  test('keeps an unknown operation code as it was stored', () async {
+    await dataSource.insert(item('a', createdAt: 1000));
+    await database.db.update(QueueColumns.tableName, {
+      QueueColumns.operation: 'removed.operation',
+    });
+
+    expect((await dataSource.getById('a'))!.operation, 'removed.operation');
+    await dataSource.markError('a', attempts: 1, error: 'unknown');
+    final rows = await database.db.query(QueueColumns.tableName);
+    expect(rows.single[QueueColumns.operation], 'removed.operation');
+  });
+
+  test('fetchPending returns incomplete items oldest first (FIFO)', () async {
+    await dataSource.insert(item('c', createdAt: 3000));
+    await dataSource.insert(item('a', createdAt: 1000));
+    await dataSource.insert(item('b', createdAt: 2000));
+    await dataSource.markDone('b');
+
+    final pending = await dataSource.fetchPending();
+
+    expect(pending.map((e) => e.id), ['a', 'c']);
+  });
+
+  test('fetchPending skips the excluded ids', () async {
+    await dataSource.insert(item('a', createdAt: 1000));
+    await dataSource.insert(item('b', createdAt: 2000));
+
+    final pending = await dataSource.fetchPending(excludeIds: {'a'});
+
+    expect(pending.map((e) => e.id), ['b']);
+  });
+
+  test('moves an item through every status', () async {
+    await dataSource.insert(item('a', createdAt: 1000));
+
+    await dataSource.markProcessing('a');
+    expect((await dataSource.getById('a'))!.status, QueueSyncStatus.processing);
+
+    await dataSource.markIncomplete('a', attempts: 1, error: 'timeout');
+    var stored = (await dataSource.getById('a'))!;
+    expect(stored.status, QueueSyncStatus.incomplete);
+    expect(stored.attempts, 1);
+    expect(stored.lastError, 'timeout');
+
+    await dataSource.markError('a', attempts: 2, error: '400: bad');
+    stored = (await dataSource.getById('a'))!;
+    expect(stored.status, QueueSyncStatus.error);
+    expect(stored.attempts, 2);
+
+    await dataSource.markDone('a');
+    stored = (await dataSource.getById('a'))!;
+    expect(stored.status, QueueSyncStatus.done);
+    expect(stored.lastError, isNull);
+    expect(stored.processedAt, isNotNull);
+  });
+
+  test(
+    'resetProcessing recovers the items interrupted while sending',
+    () async {
+      await dataSource.insert(item('a', createdAt: 1000));
+      await dataSource.insert(item('b', createdAt: 2000));
+      await dataSource.markProcessing('a');
+
+      expect(await dataSource.resetProcessing(), 1);
+      expect(await dataSource.countByStatus(QueueSyncStatus.incomplete), 2);
+    },
+  );
+
+  test(
+    'resetFailed clears the attempts of the selected failed items',
+    () async {
+      await dataSource.insert(item('a', createdAt: 1000));
+      await dataSource.insert(item('b', createdAt: 2000));
+      await dataSource.markError('a', attempts: 5, error: 'x');
+      await dataSource.markError('b', attempts: 5, error: 'x');
+
+      expect(await dataSource.resetFailed(ids: {'a'}), 1);
+      final a = (await dataSource.getById('a'))!;
+      expect(a.status, QueueSyncStatus.incomplete);
+      expect(a.attempts, 0);
+      expect(a.lastError, isNull);
+      expect((await dataSource.getById('b'))!.status, QueueSyncStatus.error);
+
+      expect(await dataSource.resetFailed(), 1);
+      expect(await dataSource.countByStatus(QueueSyncStatus.error), 0);
+    },
+  );
+
+  test('deleteDone only deletes items processed before the date', () async {
+    dataSource.clock = () => DateTime(2026);
+    await dataSource.insert(item('old', createdAt: 1000));
+    await dataSource.markDone('old');
+    dataSource.clock = () => DateTime(2026, 6);
+    await dataSource.insert(item('new', createdAt: 2000));
+    await dataSource.markDone('new');
+    await dataSource.insert(item('pending', createdAt: 3000));
+
+    expect(await dataSource.deleteDone(before: DateTime(2026, 3)), 1);
+    expect(await dataSource.getById('old'), isNull);
+    expect(await dataSource.getById('new'), isNotNull);
+    expect(await dataSource.getById('pending'), isNotNull);
+  });
+
+  test('watchAll emits now and after every write, newest first', () async {
+    final emissions = <List<String>>[];
+    final subscription = dataSource.watchAll().listen(
+      (items) => emissions.add(items.map((e) => e.id).toList()),
+    );
+
+    await pumpEventQueue();
+    await dataSource.insert(item('a', createdAt: 1000));
+    await pumpEventQueue();
+    await dataSource.insert(item('b', createdAt: 2000));
+    await pumpEventQueue();
+    await subscription.cancel();
+
+    expect(emissions, [
+      <String>[],
+      ['a'],
+      ['b', 'a'],
+    ]);
+  });
+}

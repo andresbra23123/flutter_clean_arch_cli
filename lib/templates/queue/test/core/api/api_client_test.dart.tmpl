@@ -1,0 +1,74 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:{{package}}/core/api/api.dart';
+
+import '../../helpers/helpers.dart';
+
+void main() {
+  late FakeApi api;
+  late Directory tempDir;
+
+  setUp(() {
+    api = FakeApi();
+    tempDir = Directory.systemTemp.createTempSync('api_client_test');
+  });
+
+  tearDown(() => tempDir.deleteSync(recursive: true));
+
+  group('send', () {
+    test('sends the method, path, body and idempotency key', () async {
+      await api.client.send(
+        'PATCH',
+        '/orders/1',
+        idempotencyKey: 'queue-id',
+        data: const {'amount': 10.5},
+      );
+
+      final request = api.requests.single;
+      expect(request.method, 'PATCH');
+      expect(request.path, '/orders/1');
+      expect(request.data, {'amount': 10.5});
+      expect(request.headers[ApiClient.idempotencyHeader], 'queue-id');
+    });
+
+    test(
+      'with files it sends a multipart form, skipping missing ones',
+      () async {
+        final photo = File('${tempDir.path}/photo.jpg')
+          ..writeAsBytesSync([1, 2]);
+
+        await api.client.send(
+          'POST',
+          '/orders',
+          idempotencyKey: 'queue-id',
+          data: const {'id': 'tx-1', 'amount': 10.5},
+          files: [
+            ApiFile(field: 'images[]', path: photo.path),
+            ApiFile(field: 'images[]', path: '${tempDir.path}/gone.jpg'),
+          ],
+        );
+
+        final form = api.requests.single.data as FormData;
+        expect(form.fields.map((f) => f.key), ['id', 'amount']);
+        expect(form.files.map((f) => f.key), ['images[]']);
+        expect(form.files.single.value.filename, 'photo.jpg');
+      },
+    );
+
+    test('applies its own timeout', () async {
+      const timeout = Duration(minutes: 3);
+
+      await api.client.send(
+        'POST',
+        '/orders',
+        idempotencyKey: 'queue-id',
+        timeout: timeout,
+      );
+
+      expect(api.requests.single.sendTimeout, timeout);
+      expect(api.requests.single.receiveTimeout, timeout);
+    });
+  });
+}

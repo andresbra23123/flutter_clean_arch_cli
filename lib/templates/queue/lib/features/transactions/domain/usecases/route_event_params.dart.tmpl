@@ -1,0 +1,54 @@
+// ─────────────────────────────────────────────────────────────
+// RouteEventParams
+// Input of the start and end of a route (work). Both reach
+// POST /works/transactions/client.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Route (work) whose start or end is recorded.
+class RouteEventParams extends Equatable {
+  /// Creates the parameters.
+  const RouteEventParams({
+    required this.workId,
+    this.workcode,
+    this.operativeCenter,
+    this.latitude,
+    this.longitude,
+  });
+
+  /// Work (route).
+  final int workId;
+
+  /// Code of the work.
+  final String? workcode;
+
+  /// Operative center of the work.
+  final String? operativeCenter;
+
+  /// Latitude where it happened.
+  final String? latitude;
+
+  /// Longitude where it happened.
+  final String? longitude;
+
+  /// The [ValidationFailure] of a work id that is not positive, or `null`.
+  /// Shared by every use case of the feature.
+  static ValidationFailure? validateWork(int workId) => workId > 0
+      ? null
+      : const ValidationFailure(
+          message: 'The work id must be a positive number.',
+          code: TransactionErrorCodes.invalidWork,
+        );
+
+  @override
+  List<Object?> get props => [
+    workId,
+    workcode,
+    operativeCenter,
+    latitude,
+    longitude,
+  ];
+}

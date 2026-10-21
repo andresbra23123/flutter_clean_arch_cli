@@ -1,0 +1,66 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackColumns / FeedbackTable
+// Names and queries of the feedback table. Rows in, rows out: the
+// data source converts them to models, handles errors and notifies
+// changes. The schema itself is created in
+// the schema file of this feature.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Columns of the `feedback` table: problem reports. Each one points to
+/// the queue item that sends it to the API.
+abstract final class FeedbackColumns {
+  /// Table name.
+  static const String tableName = 'feedback';
+
+  /// Primary key (uuid).
+  static const String id = 'id';
+
+  /// Code of the category (see `FeedbackCategory`).
+  static const String category = 'category';
+
+  /// Text written by the user.
+  static const String description = 'description';
+
+  /// Creation time, in milliseconds since epoch.
+  static const String createdAt = 'created_at';
+
+  /// Id of the processing queue item ([QueueSyncColumns.queueId]) that sends
+  /// this report.
+  static const String queueId = 'queue_id';
+
+  /// Every column, in table order.
+  static const List<String> all = [
+    id,
+    category,
+    description,
+    createdAt,
+    queueId,
+  ];
+}
+
+/// Operations on the `feedback` table.
+abstract final class FeedbackTable {
+  static const String _table = FeedbackColumns.tableName;
+
+  /// Inserts [row].
+  static Future<void> insert(
+    DatabaseExecutor db,
+    Map<String, Object?> row,
+  ) => db.insert(_table, row);
+
+  /// Every row, newest first, with the status of its queue item in
+  /// [QueueSyncColumns.status] (`null` once the item was purged).
+  static Future<List<Map<String, Object?>>> findAllWithSyncStatus(
+    DatabaseExecutor db,
+  ) {
+    return db.rawQuery('''
+      SELECT $_table.*, ${QueueSyncColumns.syncStatusSelect()}
+      FROM $_table
+      ${QueueSyncColumns.syncStatusJoin(_table, FeedbackColumns.queueId)}
+      ORDER BY $_table.${FeedbackColumns.createdAt} DESC
+    ''');
+  }
+}

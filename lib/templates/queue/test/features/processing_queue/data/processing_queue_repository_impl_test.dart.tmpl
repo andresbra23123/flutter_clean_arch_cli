@@ -1,0 +1,473 @@
+import 'dart:async';
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/helpers.dart';
+
+class _MockHandler extends Mock implements QueueHandler {}
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+/// Accepts every item of its [operation] and records the order it was
+/// sent in.
+class _RecordingHandler extends QueueHandler {
+  _RecordingHandler(this.operation, this.priority, this.sent);
+
+  @override
+  final String operation;
+
+  @override
+  final QueuePriority priority;
+
+  final List<String> sent;
+
+  @override
+  Future<Object?> send(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async {
+    sent.add(idempotencyKey);
+    return null;
+  }
+}
+
+void main() {
+  late AppDatabase database;
+  late ProcessingQueueLocalDataSourceImpl local;
+  late _MockHandler handler;
+  late _MockNetworkInfo networkInfo;
+  late ProcessingQueueRepositoryImpl repository;
+
+  setUpAll(() => registerFallbackValue(<String, dynamic>{}));
+
+  setUp(() async {
+    database = await openTestDatabase();
+    local = ProcessingQueueLocalDataSourceImpl(database: database);
+    // Handler of the operation every test enqueues.
+    handler = _MockHandler();
+    when(() => handler.operation).thenReturn('transaction.create');
+    when(() => handler.priority).thenReturn(QueuePriority.normal);
+    when(
+      () => handler.onDelivered(any(), any()),
+    ).thenAnswer((_) async {});
+    networkInfo = _MockNetworkInfo();
+    repository = ProcessingQueueRepositoryImpl(
+      handlers: QueueHandlerRegistry([handler]),
+      localDataSource: local,
+      networkInfo: networkInfo,
+      unitOfWork: database,
+      releaseOnEnqueue: false,
+    );
+    when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+    when(() => handler.send(any(), any())).thenAnswer((_) async => null);
+  });
+
+  tearDown(() => database.close());
+
+  Future<String> enqueue(
+    String id, {
+    String operation = 'transaction.create',
+  }) async {
+    final result = await repository.enqueueItem(
+      EnqueueParams(
+        id: id,
+        operation: operation,
+        payload: {'id': id},
+      ),
+    );
+    // Distinct creation times keep the FIFO order deterministic.
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    return result.getOrElse(() => throw StateError('not enqueued')).id;
+  }
+
+  Future<QueueSyncStatus> statusOf(String id) async =>
+      (await local.getById(id))!.status;
+
+  QueueReleaseResult released(Either<Failure, QueueReleaseResult> result) =>
+      result.getOrElse(() => throw StateError('release failed: $result'));
+
+  test('enqueue stores the item as incomplete without sending it', () async {
+    await enqueue('a');
+
+    expect(await statusOf('a'), QueueSyncStatus.incomplete);
+    verifyNever(() => handler.send(any(), any()));
+  });
+
+  test('without internet nothing is sent and items stay retained', () async {
+    when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+    await enqueue('a');
+    await enqueue('b');
+
+    final result = released(await repository.releaseQueue());
+
+    expect(result, const QueueReleaseResult(pending: 2));
+    expect(await statusOf('a'), QueueSyncStatus.incomplete);
+    verifyNever(() => handler.send(any(), any()));
+  });
+
+  test(
+    'with internet every item is sent in FIFO order and marked done',
+    () async {
+      await enqueue('a');
+      await enqueue('b');
+      final sent = <String>[];
+      when(() => handler.send(any(), any())).thenAnswer((invocation) async {
+        sent.add(invocation.positionalArguments.first as String);
+        return null;
+      });
+
+      final result = released(await repository.releaseQueue());
+
+      expect(result, const QueueReleaseResult(done: 2));
+      expect(sent, ['a', 'b']);
+      expect(await statusOf('a'), QueueSyncStatus.done);
+      expect(await statusOf('b'), QueueSyncStatus.done);
+    },
+  );
+
+  test('a 5xx adds an attempt and leaves the item incomplete', () async {
+    await enqueue('a');
+    when(() => handler.send(any(), any())).thenThrow(
+      const ServerException(message: 'down', statusCode: 503),
+    );
+
+    final result = released(await repository.releaseQueue());
+
+    final item = (await local.getById('a'))!;
+    expect(result, const QueueReleaseResult(pending: 1));
+    expect(item.status, QueueSyncStatus.incomplete);
+    expect(item.attempts, 1);
+    expect(item.lastError, contains('503'));
+  });
+
+  test(
+    'after maxAttempts retryable failures the item moves to error',
+    () async {
+      await enqueue('a');
+      when(() => handler.send(any(), any())).thenThrow(
+        const ServerException(message: 'down', statusCode: 500),
+      );
+
+      for (var i = 0; i < RetryPolicy.defaultMaxAttempts; i++) {
+        await repository.releaseQueue();
+      }
+
+      final item = (await local.getById('a'))!;
+      expect(item.status, QueueSyncStatus.error);
+      expect(item.attempts, RetryPolicy.defaultMaxAttempts);
+    },
+  );
+
+  test('a 4xx moves the item to error right away and continues', () async {
+    await enqueue('a');
+    await enqueue('b');
+    when(() => handler.send(any(), any())).thenAnswer((invocation) async {
+      final id = invocation.positionalArguments.first as String;
+      if (id == 'a') {
+        throw const ServerException(message: 'invalid', statusCode: 422);
+      }
+      return null;
+    });
+
+    final result = released(await repository.releaseQueue());
+
+    expect(result, const QueueReleaseResult(done: 1, failed: 1));
+    expect(await statusOf('a'), QueueSyncStatus.error);
+    expect(await statusOf('b'), QueueSyncStatus.done);
+  });
+
+  test(
+    'an unknown operation moves the item to error, keeps it and continues',
+    () async {
+      await enqueue('a', operation: 'order.unknown');
+      await enqueue('b');
+
+      final result = released(await repository.releaseQueue());
+
+      final item = (await local.getById('a'))!;
+      expect(result, const QueueReleaseResult(done: 1, failed: 1));
+      expect(item.status, QueueSyncStatus.error);
+      expect(
+        item.lastError,
+        ProcessingQueueRepositoryImpl.unknownOperationError,
+      );
+      expect(await statusOf('b'), QueueSyncStatus.done);
+    },
+  );
+
+  test('the handler gets the item id as key and its stored payload', () async {
+    await enqueue('a');
+
+    await repository.releaseQueue();
+
+    verify(() => handler.send('a', {'id': 'a'})).called(1);
+  });
+
+  test('hands the API answer to the handler once delivered', () async {
+    await enqueue('a');
+    when(
+      () => handler.send(any(), any()),
+    ).thenAnswer((_) async => {'server_id': 7});
+
+    await repository.releaseQueue();
+
+    verify(() => handler.onDelivered({'id': 'a'}, {'server_id': 7})).called(1);
+  });
+
+  test('a failing onDelivered does not fail the delivered item', () async {
+    await enqueue('a');
+    when(
+      () => handler.onDelivered(any(), any()),
+    ).thenThrow(StateError('local storage broke'));
+
+    final result = released(await repository.releaseQueue());
+
+    expect(result, const QueueReleaseResult(done: 1));
+    expect(await statusOf('a'), QueueSyncStatus.done);
+  });
+
+  test(
+    'losing the connection stops the release and retains the rest',
+    () async {
+      await enqueue('a');
+      await enqueue('b');
+      await enqueue('c');
+      when(() => handler.send(any(), any())).thenAnswer((invocation) async {
+        final id = invocation.positionalArguments.first as String;
+        if (id == 'b') throw const NetworkException();
+        return null;
+      });
+
+      final result = released(await repository.releaseQueue());
+
+      expect(result, const QueueReleaseResult(done: 1, pending: 2));
+      expect(await statusOf('a'), QueueSyncStatus.done);
+      expect(await statusOf('b'), QueueSyncStatus.incomplete);
+      expect(await statusOf('c'), QueueSyncStatus.incomplete);
+      verify(() => handler.send(any(), any())).called(2);
+    },
+  );
+
+  group('priority', () {
+    Future<QueuePriority> priorityOf(String id) async =>
+        (await local.getById(id))!.priority;
+
+    test('an item takes the priority of the handler of its operation', () async {
+      when(() => handler.priority).thenReturn(QueuePriority.high);
+
+      await enqueue('a');
+
+      expect(await priorityOf('a'), QueuePriority.high);
+    });
+
+    test('the priority given to the enqueue overrides the handler', () async {
+      when(() => handler.priority).thenReturn(QueuePriority.high);
+
+      await repository.enqueue(
+        id: 'a',
+        operation: 'transaction.create',
+        payload: const {},
+        priority: QueuePriority.low,
+      );
+
+      expect(await priorityOf('a'), QueuePriority.low);
+    });
+
+    test('an operation without handler is normal', () async {
+      await enqueue('a', operation: 'unknown.operation');
+
+      expect(await priorityOf('a'), QueuePriority.normal);
+    });
+
+    test(
+      'the release sends higher priorities first, FIFO within one',
+      () async {
+        final sent = <String>[];
+        when(() => handler.send(any(), any())).thenAnswer((invocation) async {
+          sent.add(invocation.positionalArguments.first as String);
+          return null;
+        });
+        repository = ProcessingQueueRepositoryImpl(
+          handlers: QueueHandlerRegistry([
+            handler,
+            _RecordingHandler('feedback.create', QueuePriority.low, sent),
+            _RecordingHandler('transaction.start', QueuePriority.high, sent),
+          ]),
+          localDataSource: local,
+          networkInfo: networkInfo,
+          unitOfWork: database,
+          releaseOnEnqueue: false,
+        );
+        await enqueue('low', operation: 'feedback.create');
+        await enqueue('normal1');
+        await enqueue('high1', operation: 'transaction.start');
+        await enqueue('normal2');
+        await enqueue('high2', operation: 'transaction.start');
+
+        final result = released(await repository.releaseQueue());
+
+        expect(result.done, 5);
+        expect(sent, [
+          'high1',
+          'high2',
+          'normal1',
+          'normal2',
+          'low',
+        ]);
+      },
+    );
+  });
+
+  test('concurrent releases share a single run', () async {
+    await enqueue('a');
+    final gate = Completer<void>();
+    when(() => handler.send(any(), any())).thenAnswer((_) async {
+      await gate.future;
+      return null;
+    });
+
+    final first = repository.releaseQueue();
+    final second = repository.releaseQueue();
+    gate.complete();
+    await Future.wait([first, second]);
+
+    expect(identical(first, second), isTrue);
+    verify(() => handler.send(any(), any())).called(1);
+    expect(await statusOf('a'), QueueSyncStatus.done);
+  });
+
+  test('items enqueued during a release are sent in the same run', () async {
+    await enqueue('a');
+    final gate = Completer<void>();
+    when(() => handler.send(any(), any())).thenAnswer((invocation) async {
+      final id = invocation.positionalArguments.first as String;
+      if (id == 'a') await gate.future;
+      return null;
+    });
+
+    final release = repository.releaseQueue();
+    await pumpEventQueue();
+    await enqueue('b');
+    unawaited(repository.releaseQueue());
+    gate.complete();
+    final result = released(await release);
+
+    expect(result.done, 2);
+    expect(await statusOf('b'), QueueSyncStatus.done);
+  });
+
+  test('retryQueueItem puts a failed item back in the queue', () async {
+    await enqueue('a');
+    await local.markError('a', attempts: 5, error: 'x');
+
+    expect(
+      await repository.retryQueueItem('a'),
+      const Right<Failure, Unit>(unit),
+    );
+
+    final item = (await local.getById('a'))!;
+    expect(item.status, QueueSyncStatus.incomplete);
+    expect(item.attempts, 0);
+  });
+
+  test('retryQueueItem returns NotFoundFailure for an unknown id', () async {
+    final result = await repository.retryQueueItem('missing');
+
+    expect(result.fold((f) => f, (_) => null), isA<NotFoundFailure>());
+  });
+
+  test('recoverInterruptedItems resets the items left processing', () async {
+    await enqueue('a');
+    await local.markProcessing('a');
+
+    expect(
+      await repository.recoverInterruptedItems(),
+      const Right<Failure, int>(1),
+    );
+    expect(await statusOf('a'), QueueSyncStatus.incomplete);
+  });
+
+  test('releaseOnEnqueue sends the item right after storing it', () async {
+    repository = ProcessingQueueRepositoryImpl(
+      handlers: QueueHandlerRegistry([handler]),
+      localDataSource: local,
+      networkInfo: networkInfo,
+      unitOfWork: database,
+    );
+
+    await enqueue('a');
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    verify(() => handler.send(any(), any())).called(1);
+    expect(await statusOf('a'), QueueSyncStatus.done);
+  });
+
+  group('enqueued inside a UnitOfWork', () {
+    setUp(() {
+      repository = ProcessingQueueRepositoryImpl(
+        handlers: QueueHandlerRegistry([handler]),
+        localDataSource: local,
+        networkInfo: networkInfo,
+        unitOfWork: database,
+      );
+    });
+
+    Future<void> settle() async {
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    test('is sent only after the commit', () async {
+      await database.run(() async {
+        await enqueue('a');
+        await settle();
+        // Still inside the transaction: nothing may leave the device.
+        verifyNever(() => handler.send(any(), any()));
+      });
+      await settle();
+
+      verify(() => handler.send(any(), any())).called(1);
+      expect(await statusOf('a'), QueueSyncStatus.done);
+    });
+
+    test('is never stored nor sent when the transaction rolls back', () async {
+      await expectLater(
+        database.run(() async {
+          await enqueue('a');
+          throw StateError('the transaction could not be stored');
+        }),
+        throwsStateError,
+      );
+      await settle();
+
+      verifyNever(() => handler.send(any(), any()));
+      expect(await local.getById('a'), isNull);
+    });
+  });
+
+  test('watchQueue emits the items as Right', () async {
+    await enqueue('a');
+
+    final emitted = await repository.watchQueue().first;
+
+    expect(emitted.getOrElse(() => []).map((e) => e.id), ['a']);
+  });
+
+  test('watchQueue emits a CacheFailure as Left when reading fails', () async {
+    await database.close();
+
+    final emitted = await repository.watchQueue().first;
+
+    expect(emitted.fold((f) => f, (_) => null), isA<CacheFailure>());
+    // tearDown closes it again.
+    database = await openTestDatabase();
+  });
+}

@@ -1,0 +1,36 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackRemoteDataSourceImpl
+// Calls the feedback API through ApiClient (Dio) and converts every
+// error into a NetworkException or a ServerException.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dio/dio.dart';
+import 'package:{{package}}/core/api/api.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+
+/// [FeedbackRemoteDataSourceInter] implementation that uses [ApiClient].
+class FeedbackRemoteDataSourceImpl implements FeedbackRemoteDataSourceInter {
+  /// Creates the data source with the [apiClient] it uses.
+  FeedbackRemoteDataSourceImpl({required this.apiClient});
+
+  /// HTTP client of the app.
+  final ApiClient apiClient;
+
+  @override
+  Future<Object?> sendFeedback(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await apiClient.send(
+        'POST',
+        FeedbackEndpoints.create,
+        idempotencyKey: idempotencyKey,
+        data: payload,
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.toAppException();
+    }
+  }
+}

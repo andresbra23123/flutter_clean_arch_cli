@@ -1,0 +1,72 @@
+// ─────────────────────────────────────────────────────────────
+// QueueHandler / QueueHandlerRegistry
+// How an item LEAVES the processing queue. Each feature writes one
+// QueueHandler per operation it enqueues (it calls the feature's remote
+// data source) and registers it in the QueueHandlerRegistry; the queue
+// looks up the handler of each item by its operation code.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/queue_sync/queue_priority.dart';
+
+/// Sends one kind of queued operation.
+abstract class QueueHandler {
+  /// Base constructor for the subclasses.
+  const QueueHandler();
+
+  /// Code stored with every queued item of this operation.
+  ///
+  /// Once released it must never change or be reused for another
+  /// operation: items already queued on the devices depend on it.
+  String get operation;
+
+  /// Priority of the items of this operation, stored when they are
+  /// enqueued unless the enqueue gives another one. Higher priorities are
+  /// sent first. [QueuePriority.normal] by default.
+  QueuePriority get priority => QueuePriority.normal;
+
+  /// Sends an item with its stored [payload] through the remote data
+  /// source of the feature, and returns the decoded body of the answer.
+  ///
+  /// [idempotencyKey] identifies the item: the API uses it to detect the
+  /// same item sent twice. Throws a `NetworkException` when the API could
+  /// not be reached and a `ServerException` when it answered with an
+  /// error, like every remote data source.
+  Future<Object?> send(String idempotencyKey, Map<String, dynamic> payload);
+
+  /// Called once the API accepted the item (2xx), with the decoded body
+  /// of the [response]. Does nothing by default; override it to store
+  /// what the API returns (e.g. the server copy of a record).
+  ///
+  /// The item is already done: an error here is logged and does not send
+  /// it again.
+  Future<void> onDelivered(
+    Map<String, dynamic> payload,
+    Object? response,
+  ) async {}
+}
+
+/// Every [QueueHandler] of the app, by operation code. Created in core/di;
+/// each feature registers its handlers in its `init<Feature>Dependencies()`.
+class QueueHandlerRegistry {
+  /// Creates the registry with the given [handlers], if any.
+  QueueHandlerRegistry([Iterable<QueueHandler> handlers = const []]) {
+    handlers.forEach(register);
+  }
+
+  final Map<String, QueueHandler> _handlers = {};
+
+  /// Adds [handler]. Throws a [StateError] when its operation code is
+  /// already registered: two handlers for one code is a bug.
+  void register(QueueHandler handler) {
+    if (_handlers.containsKey(handler.operation)) {
+      throw StateError(
+        'Operation "${handler.operation}" is already registered.',
+      );
+    }
+    _handlers[handler.operation] = handler;
+  }
+
+  /// Handler of [operation], or `null` when this version of the app does
+  /// not know it.
+  QueueHandler? handlerFor(String operation) => _handlers[operation];
+}

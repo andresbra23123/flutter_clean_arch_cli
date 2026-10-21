@@ -1,0 +1,66 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackModel
+// FeedbackEntity plus its SQLite row mapping and the JSON body the
+// processing queue sends to the API.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/data/datasources/local/database/feedback_table.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// [FeedbackEntity] with conversion to rows and JSON.
+class FeedbackModel extends FeedbackEntity {
+  /// Creates the feedback model.
+  const FeedbackModel({
+    required super.id,
+    required super.category,
+    required super.description,
+    required super.createdAt,
+    required super.queueId,
+    super.syncStatus,
+  });
+
+  /// Creates a model from a [FeedbackColumns] row joined with the status of
+  /// its queue item ([QueueSyncColumns.status]).
+  ///
+  /// Without a queue item (processed items are purged from the queue
+  /// after a while) the report was already sent: [QueueSyncStatus.done].
+  factory FeedbackModel.fromRow(Map<String, Object?> row) {
+    final syncStatus = row[QueueSyncColumns.status] as String?;
+    return FeedbackModel(
+      id: row[FeedbackColumns.id]! as String,
+      category: FeedbackCategory.fromCode(
+        row[FeedbackColumns.category]! as String,
+      ),
+      description: row[FeedbackColumns.description]! as String,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        row[FeedbackColumns.createdAt]! as int,
+      ),
+      queueId: row[FeedbackColumns.queueId]! as String,
+      syncStatus: syncStatus == null
+          ? QueueSyncStatus.done
+          : queueSyncStatusFromDb(syncStatus),
+    );
+  }
+
+  /// Converts this model into a [FeedbackColumns] row.
+  Map<String, Object?> toRow() {
+    return {
+      FeedbackColumns.id: id,
+      FeedbackColumns.category: category.code,
+      FeedbackColumns.description: description,
+      FeedbackColumns.createdAt: createdAt.millisecondsSinceEpoch,
+      FeedbackColumns.queueId: queueId,
+    };
+  }
+
+  /// Body sent to the API by the processing queue.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'category': category.code,
+      'description': description,
+      'created_at': createdAt.toUtc().toIso8601String(),
+    };
+  }
+}

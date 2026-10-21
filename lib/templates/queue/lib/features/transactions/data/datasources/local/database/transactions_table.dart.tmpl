@@ -1,0 +1,137 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionColumns / TransactionTable
+// Names and queries of the transactions table. Rows in, rows out: the
+// data source converts them to models, handles errors and notifies
+// changes. The schema itself is created in
+// the schema file of this feature.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Columns of the `transactions` table. Each transaction points to the
+/// queue item that sends it to the API.
+abstract final class TransactionColumns {
+  /// Table name.
+  static const String tableName = 'transactions';
+
+  /// Primary key (uuid, created on the device).
+  static const String id = 'id';
+
+  /// Work (route) it belongs to.
+  static const String workId = 'work_id';
+
+  /// Code of the `TransactionStatus`.
+  static const String status = 'status';
+
+  /// Document (summary) of the order.
+  static const String summaryId = 'summary_id';
+
+  /// Code of the work.
+  static const String workcode = 'workcode';
+
+  /// Order it is about.
+  static const String orderNumber = 'order_number';
+
+  /// Expedition of the order.
+  static const String expedition = 'expedition';
+
+  /// Payments, encoded as a JSON list.
+  static const String payments = 'payments';
+
+  /// Amount delivered.
+  static const String delivery = 'delivery';
+
+  /// Observation of the driver.
+  static const String observation = 'observation';
+
+  /// Paths of the photos, encoded as a JSON list.
+  static const String images = 'images';
+
+  /// Path of the signature.
+  static const String firm = 'firm';
+
+  /// Operative center of the work.
+  static const String operativeCenter = 'operative_center';
+
+  /// Start of the action, in milliseconds since epoch (`start` in the
+  /// API; `start`/`end` are not used as names because END is a SQL
+  /// keyword).
+  static const String startedAt = 'started_at';
+
+  /// End of the action, in milliseconds since epoch (`end` in the API).
+  static const String endedAt = 'ended_at';
+
+  /// Latitude where it was recorded.
+  static const String latitude = 'latitude';
+
+  /// Longitude where it was recorded.
+  static const String longitude = 'longitude';
+
+  /// When it was recorded, in milliseconds since epoch. Sorts the list.
+  static const String createdAt = 'created_at';
+
+  /// Id of the processing queue item ([QueueSyncColumns.queueId]) that sends
+  /// this transaction.
+  static const String queueId = 'queue_id';
+
+  /// Every column, in table order.
+  static const List<String> all = [
+    id,
+    workId,
+    status,
+    summaryId,
+    workcode,
+    orderNumber,
+    expedition,
+    payments,
+    delivery,
+    observation,
+    images,
+    firm,
+    operativeCenter,
+    startedAt,
+    endedAt,
+    latitude,
+    longitude,
+    createdAt,
+    queueId,
+  ];
+}
+
+/// Operations on the `transactions` table.
+abstract final class TransactionTable {
+  static const String _table = TransactionColumns.tableName;
+
+  /// Inserts [row].
+  static Future<void> insert(
+    DatabaseExecutor db,
+    Map<String, Object?> row,
+  ) => db.insert(_table, row);
+
+  /// Writes [values] on the transaction [id]. Returns how many rows
+  /// changed.
+  static Future<int> update(
+    DatabaseExecutor db,
+    String id,
+    Map<String, Object?> values,
+  ) => db.update(
+    _table,
+    values,
+    where: '${TransactionColumns.id} = ?',
+    whereArgs: [id],
+  );
+
+  /// Every row, newest first, with the status of its queue item in
+  /// [QueueSyncColumns.status] (`null` once the item was purged).
+  static Future<List<Map<String, Object?>>> findAllWithSyncStatus(
+    DatabaseExecutor db,
+  ) {
+    return db.rawQuery('''
+      SELECT $_table.*, ${QueueSyncColumns.syncStatusSelect()}
+      FROM $_table
+      ${QueueSyncColumns.syncStatusJoin(_table, TransactionColumns.queueId)}
+      ORDER BY $_table.${TransactionColumns.createdAt} DESC
+    ''');
+  }
+}

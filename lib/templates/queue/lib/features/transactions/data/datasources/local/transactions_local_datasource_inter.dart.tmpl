@@ -1,0 +1,30 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsLocalDataSourceInter (contract)
+// Defines how the transactions are stored on the device.
+// The repository depends on this contract, never on the implementation,
+// so the storage technology can change without touching other layers.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+
+/// Local storage contract for the transactions feature.
+///
+/// Implementations throw a [CacheException] when the storage fails. The
+/// repository catches it and converts it into a `CacheFailure`.
+abstract interface class TransactionsLocalDataSourceInter {
+  /// Emits every transaction (newest first) with the status of its queue
+  /// item, now and after every change of the transactions or the queue.
+  Stream<List<TransactionModel>> watchAll();
+
+  /// Stores [transaction].
+  ///
+  /// Run it in the same UnitOfWork as the enqueue of its queue item, so
+  /// both are stored together or not at all.
+  Future<void> insert(TransactionModel transaction);
+
+  /// Overwrites the transaction [id] with the values of its server copy
+  /// ([json], as the API returned it after storing it). Only the fields
+  /// present in [json] change; the id and the queue item never do.
+  Future<void> applyServerCopy(String id, Map<String, dynamic> json);
+}

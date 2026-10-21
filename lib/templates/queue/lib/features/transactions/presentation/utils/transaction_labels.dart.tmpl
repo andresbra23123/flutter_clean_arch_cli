@@ -1,0 +1,45 @@
+// ─────────────────────────────────────────────────────────────
+// Transaction labels
+// Translated name and icon of each TransactionStatus, and the
+// translated message of each TransactionErrorCodes.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Translated name of [status].
+String transactionStatusLabel(
+  AppLocalizations l10n,
+  TransactionStatus status,
+) => switch (status) {
+  TransactionStatus.start => l10n.transactionStatusStart,
+  TransactionStatus.end => l10n.transactionStatusEnd,
+  TransactionStatus.load => l10n.transactionStatusLoad,
+  TransactionStatus.delivery => l10n.transactionStatusDelivery,
+  TransactionStatus.partial => l10n.transactionStatusPartial,
+  TransactionStatus.partialRespawn => l10n.transactionStatusPartialRespawn,
+  TransactionStatus.reject => l10n.transactionStatusReject,
+  TransactionStatus.respawn => l10n.transactionStatusRespawn,
+};
+
+/// Icon of [status].
+IconData transactionStatusIcon(TransactionStatus status) => switch (status) {
+  TransactionStatus.start => Icons.play_arrow,
+  TransactionStatus.end => Icons.flag,
+  TransactionStatus.load => Icons.inventory_2_outlined,
+  TransactionStatus.delivery => Icons.check_circle_outline,
+  TransactionStatus.partial ||
+  TransactionStatus.partialRespawn => Icons.incomplete_circle,
+  TransactionStatus.reject => Icons.block,
+  TransactionStatus.respawn => Icons.replay,
+};
+
+/// Translated message of a broken rule [code] (see
+/// [TransactionErrorCodes]), or `null` when it is not one.
+String? transactionErrorMessage(AppLocalizations l10n, String? code) =>
+    switch (code) {
+      TransactionErrorCodes.invalidWork => l10n.transactionErrorInvalidWork,
+      TransactionErrorCodes.invalidStatus => l10n.transactionErrorInvalidStatus,
+      _ => null,
+    };

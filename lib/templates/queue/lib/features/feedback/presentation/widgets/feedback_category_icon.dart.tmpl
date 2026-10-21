@@ -1,0 +1,45 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackCategoryIcon
+// Icon and translated name of each FeedbackCategory, shared by the
+// list and the form of the feedback page.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// Icon of [category].
+IconData feedbackCategoryIcon(FeedbackCategory category) => switch (category) {
+  FeedbackCategory.bug => Icons.bug_report_outlined,
+  FeedbackCategory.suggestion => Icons.lightbulb_outline,
+  FeedbackCategory.content => Icons.library_music_outlined,
+  FeedbackCategory.other => Icons.help_outline,
+};
+
+/// Translated name of [category].
+String feedbackCategoryLabel(
+  AppLocalizations l10n,
+  FeedbackCategory category,
+) => switch (category) {
+  FeedbackCategory.bug => l10n.feedbackCategoryBug,
+  FeedbackCategory.suggestion => l10n.feedbackCategorySuggestion,
+  FeedbackCategory.content => l10n.feedbackCategoryContent,
+  FeedbackCategory.other => l10n.feedbackCategoryOther,
+};
+
+/// Round icon of a [FeedbackCategory], with its name as tooltip.
+class FeedbackCategoryIcon extends StatelessWidget {
+  /// Creates the icon of [category].
+  const FeedbackCategoryIcon({required this.category, super.key});
+
+  /// Category to show.
+  final FeedbackCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: feedbackCategoryLabel(context.l10n, category),
+      child: CircleAvatar(child: Icon(feedbackCategoryIcon(category))),
+    );
+  }
+}

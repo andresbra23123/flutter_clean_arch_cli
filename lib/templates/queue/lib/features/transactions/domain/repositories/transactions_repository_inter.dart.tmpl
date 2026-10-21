@@ -1,0 +1,42 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsRepositoryInter (contract)
+// Defines what the domain layer needs from the transactions data.
+// The domain depends only on this contract; the data layer
+// implements it in TransactionsRepositoryImpl.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Transactions repository contract.
+///
+/// Implementations never throw: every error is returned as a `Failure` on
+/// the left side of the `Either`.
+abstract interface class TransactionsRepositoryInter {
+  // ── Local: reads the device ─────────────────────────────────
+
+  /// Emits every transaction (newest first) with its sync status, now and
+  /// after every change of the transactions or the queue, or a `Failure`
+  /// when they cannot be read.
+  StreamEither<List<TransactionEntity>> watchTransactions();
+
+  // ── Queued: stored now, sent to the API later by the queue ──
+
+  /// Records the result of an order. Sent to
+  /// `POST /works/transactions/store` when there is a connection.
+  ///
+  /// [params] arrive validated and trimmed by `CreateTransactionUseCaseImpl`.
+  FutureEither<TransactionEntity> createTransaction(
+    CreateTransactionParams params,
+  );
+
+  /// Records the start of the route. Sent to
+  /// `POST /works/transactions/client` when there is a connection.
+  FutureEither<TransactionEntity> startTransaction(RouteEventParams params);
+
+  /// Records the end of the route. Sent to
+  /// `POST /works/transactions/client` when there is a connection.
+  FutureEither<TransactionEntity> endTransaction(RouteEventParams params);
+
+  // flutter_clean_arch:repository-methods
+}

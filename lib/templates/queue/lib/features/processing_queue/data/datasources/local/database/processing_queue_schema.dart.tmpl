@@ -1,0 +1,40 @@
+// ─────────────────────────────────────────────────────────────
+// processingQueueSchema
+// Tables of the processing queue and their migrations (rules in
+// core/database/feature_schema.dart). Opened by AppDatabase, which gets
+// it from core/di.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+
+/// Schema of the processing queue. Position + 1 is its version.
+const FeatureSchema processingQueueSchema = FeatureSchema(
+  name: 'processing_queue',
+  migrations: [_v1],
+);
+
+/// v1: processing queue ordered by status, priority, and creation time.
+Future<void> _v1(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE processing_queue (
+      id TEXT PRIMARY KEY,
+      operation TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL
+        CHECK (status IN ('incomplete', 'processing', 'done', 'error')),
+      priority INTEGER NOT NULL DEFAULT 1
+        CHECK (priority IN (0, 1, 2)),
+      attempts INTEGER NOT NULL DEFAULT 0
+        CHECK (attempts >= 0),
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      processed_at INTEGER
+    )
+  ''');
+
+  await db.execute(
+    'CREATE INDEX idx_processing_queue_status '
+    'ON processing_queue (status, priority DESC, created_at)',
+  );
+}

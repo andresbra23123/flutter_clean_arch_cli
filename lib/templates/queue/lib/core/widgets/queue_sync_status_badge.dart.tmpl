@@ -1,0 +1,69 @@
+// ─────────────────────────────────────────────────────────────
+// QueueSyncStatusBadge
+// Colored, translated label of a QueueSyncStatus. Shared by the queue page
+// and every feature that shows the sync status of its records.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Small rounded label with the color and name of [status].
+class QueueSyncStatusBadge extends StatelessWidget {
+  /// Creates the badge for [status].
+  const QueueSyncStatusBadge({required this.status, super.key});
+
+  /// Status to show.
+  final QueueSyncStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = syncStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(syncStatusIcon(status), size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            syncStatusLabel(context.l10n, status),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Translated name of [status].
+String syncStatusLabel(AppLocalizations l10n, QueueSyncStatus status) =>
+    switch (status) {
+      QueueSyncStatus.incomplete => l10n.queueStatusIncomplete,
+      QueueSyncStatus.processing => l10n.queueStatusProcessing,
+      QueueSyncStatus.done => l10n.queueStatusDone,
+      QueueSyncStatus.error => l10n.queueStatusError,
+    };
+
+/// Color of [status].
+Color syncStatusColor(QueueSyncStatus status) => switch (status) {
+  QueueSyncStatus.incomplete => Colors.orange,
+  QueueSyncStatus.processing => Colors.blue,
+  QueueSyncStatus.done => Colors.green,
+  QueueSyncStatus.error => Colors.red,
+};
+
+/// Icon of [status].
+IconData syncStatusIcon(QueueSyncStatus status) => switch (status) {
+  QueueSyncStatus.incomplete => Icons.schedule,
+  QueueSyncStatus.processing => Icons.sync,
+  QueueSyncStatus.done => Icons.check_circle_outline,
+  QueueSyncStatus.error => Icons.error_outline,
+};

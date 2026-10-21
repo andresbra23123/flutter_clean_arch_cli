@@ -1,0 +1,120 @@
+import 'dart:convert';
+
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/transactions.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  final transaction = TransactionModel(
+    id: 'tx-1',
+    workId: 120,
+    status: TransactionStatus.partial,
+    createdAt: DateTime(2026, 10, 6, 10),
+    queueId: 'q-1',
+    orderNumber: 'PED-1',
+    // A model, as read back from a row (Equatable compares the type).
+    payments: [
+      PaymentModel(method: 'cash', paid: '1500', date: DateTime(2026, 10, 6)),
+    ],
+    images: const ['/photos/a.jpg'],
+    start: DateTime(2026, 10, 6, 10),
+    end: DateTime(2026, 10, 6, 10, 20, 5),
+  );
+
+  test('a row reads back the same transaction', () {
+    final row = transaction.toRow();
+
+    expect(
+      TransactionModel.fromRow({...row, QueueSyncColumns.status: 'error'}),
+      TransactionModel.fromEntity(
+        transaction,
+      ).copyWithSync(QueueSyncStatus.error),
+    );
+  });
+
+  test('without a queue item the transaction was already sent', () {
+    expect(
+      TransactionModel.fromRow(transaction.toRow()).syncStatus,
+      QueueSyncStatus.done,
+    );
+  });
+
+  test('the API body is flat, with lists as JSON and API dates', () {
+    final json = transaction.toJson();
+
+    expect(json['status'], 'partial');
+    expect(json['images'], jsonEncode(['/photos/a.jpg']));
+    expect(jsonDecode(json['payments'] as String), [
+      {
+        'method': 'cash',
+        'paid': '1500',
+        'id_account': null,
+        'date': '2026-10-06 00:00:00',
+      },
+    ]);
+    expect(json['start'], '2026-10-06 10:00:00');
+    expect(json['end'], '2026-10-06 10:20:05');
+    expect(json.values.whereType<Map<dynamic, dynamic>>(), isEmpty);
+    expect(json.values.whereType<List<dynamic>>(), isEmpty);
+  });
+
+  test('the server copy only overwrites the fields it sends', () {
+    final row = TransactionModel.rowFromServerJson({
+      'id': 991,
+      'work_id': '120',
+      'delivery': 1500,
+      'images': ['https://cdn/a.jpg'],
+      'payments': '[{"method":"transfer","paid":1500,"id_account":3}]',
+      'end': '2026-10-06T10:21:00',
+      'queue_id': 'other',
+    });
+
+    expect(row, {
+      TransactionColumns.workId: 120,
+      TransactionColumns.delivery: '1500',
+      TransactionColumns.images: jsonEncode(['https://cdn/a.jpg']),
+      TransactionColumns.payments: jsonEncode([
+        {'method': 'transfer', 'paid': '1500', 'id_account': '3', 'date': null},
+      ]),
+      TransactionColumns.endedAt: DateTime(
+        2026,
+        10,
+        6,
+        10,
+        21,
+      ).millisecondsSinceEpoch,
+    });
+  });
+
+  test('a server copy never clears the work id', () {
+    expect(
+      TransactionModel.rowFromServerJson({'work_id': null}),
+      isEmpty,
+    );
+  });
+}
+
+extension on TransactionModel {
+  TransactionModel copyWithSync(QueueSyncStatus status) => TransactionModel(
+    id: id,
+    workId: workId,
+    status: this.status,
+    createdAt: createdAt,
+    queueId: queueId,
+    summaryId: summaryId,
+    workcode: workcode,
+    orderNumber: orderNumber,
+    expedition: expedition,
+    payments: payments,
+    delivery: delivery,
+    observation: observation,
+    images: images,
+    firm: firm,
+    operativeCenter: operativeCenter,
+    start: start,
+    end: end,
+    latitude: latitude,
+    longitude: longitude,
+    syncStatus: status,
+  );
+}

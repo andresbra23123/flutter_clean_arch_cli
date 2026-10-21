@@ -1,0 +1,116 @@
+// ─────────────────────────────────────────────────────────────
+// TransactionsBloc
+// Connects the transactions use cases with the UI.
+// Receives events → calls use cases → emits states.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+part 'transactions_event.dart';
+part 'transactions_state.dart';
+
+/// Manages the state of the transactions screen.
+///
+/// Created by get_it as a factory (see `transactions_injection.dart`), so
+/// every screen gets its own instance.
+class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
+  /// Creates the BLoC in the loading state.
+  TransactionsBloc({
+    required this._watchTransactions,
+    required this._createTransaction,
+    required this._startTransaction,
+    required this._endTransaction,
+  }) : super(const TransactionsState()) {
+    on<TransactionsSubscriptionRequested>(_onSubscriptionRequested);
+    on<TransactionCreateRequested>(_onCreateRequested);
+    on<TransactionRouteEventRequested>(_onRouteEventRequested);
+  }
+
+  // Private: the UI must talk to the BLoC through events, never by
+  // calling its use cases directly.
+  final WatchTransactionsUseCaseImpl _watchTransactions;
+  final CreateTransactionUseCaseImpl _createTransaction;
+  final StartTransactionUseCaseImpl _startTransaction;
+  final EndTransactionUseCaseImpl _endTransaction;
+
+  /// Follows the transactions until the BLoC is closed.
+  Future<void> _onSubscriptionRequested(
+    TransactionsSubscriptionRequested event,
+    Emitter<TransactionsState> emit,
+  ) {
+    return emit.forEach<EitherOr<List<TransactionEntity>>>(
+      _watchTransactions(const NoParams()),
+      onData: (result) => result.fold(
+        (failure) => state.copyWith(
+          status: TransactionsViewStatus.failure,
+          failureMessage: () => failure.message,
+          failureCode: () => null,
+        ),
+        (transactions) => state.copyWith(
+          status: TransactionsViewStatus.ready,
+          transactions: transactions,
+        ),
+      ),
+    );
+  }
+
+  /// Stores the result of an order in the processing queue.
+  Future<void> _onCreateRequested(
+    TransactionCreateRequested event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    _clearResult(emit);
+    final result = await _createTransaction(
+      CreateTransactionParams(
+        workId: event.workId,
+        status: event.status,
+        orderNumber: event.orderNumber,
+        observation: event.observation,
+      ),
+    );
+    _emitResult(result, emit);
+  }
+
+  /// Stores the start or end of a route in the processing queue.
+  Future<void> _onRouteEventRequested(
+    TransactionRouteEventRequested event,
+    Emitter<TransactionsState> emit,
+  ) async {
+    _clearResult(emit);
+    final useCase = event.status == TransactionStatus.end
+        ? _endTransaction
+        : _startTransaction;
+    _emitResult(await useCase(RouteEventParams(workId: event.workId)), emit);
+  }
+
+  /// Clears the previous result, so the same message can show again.
+  void _clearResult(Emitter<TransactionsState> emit) {
+    emit(
+      state.copyWith(
+        lastCreated: () => null,
+        failureMessage: () => null,
+        failureCode: () => null,
+      ),
+    );
+  }
+
+  void _emitResult(
+    EitherOr<TransactionEntity> result,
+    Emitter<TransactionsState> emit,
+  ) {
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          failureMessage: () => failure.message,
+          failureCode: () => failure is ValidationFailure ? failure.code : null,
+        ),
+      ),
+      (transaction) => emit(state.copyWith(lastCreated: () => transaction)),
+    );
+  }
+}

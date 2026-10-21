@@ -1,0 +1,52 @@
+// ─────────────────────────────────────────────────────────────
+// StoreTransactionQueueHandler
+// How a queued result of an order reaches the API: through
+// TransactionsRemoteDataSourceInter.sendTransaction (multipart, with
+// its photos and signature). The API answers the stored transaction,
+// which replaces the local copy. Registered in the
+// QueueHandlerRegistry by initTransactionsDependencies().
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/transactions/data/data.dart';
+
+/// Sends a transaction recorded by `TransactionsRepositoryImpl.createTransaction`.
+class StoreTransactionQueueHandler extends QueueHandler {
+  /// Creates the handler; [localDataSource] receives the server copy.
+  const StoreTransactionQueueHandler({
+    required this.remoteDataSource,
+    required this.localDataSource,
+  });
+
+  /// Sends the transactions to the API.
+  final TransactionsRemoteDataSourceInter remoteDataSource;
+
+  /// Stores the server copy of each sent transaction.
+  final TransactionsLocalDataSourceInter localDataSource;
+
+  /// Code stored with every queued transaction. Never change it: items
+  /// already queued on the devices depend on it.
+  static const String code = 'transaction.create';
+
+  @override
+  String get operation => code;
+
+  /// Transactions go before the other operations, with the route events
+  /// that frame them (same priority, so they stay FIFO among them).
+  @override
+  QueuePriority get priority => QueuePriority.high;
+
+  @override
+  Future<Object?> send(String idempotencyKey, Map<String, dynamic> payload) =>
+      remoteDataSource.sendTransaction(idempotencyKey, payload);
+
+  @override
+  Future<void> onDelivered(
+    Map<String, dynamic> payload,
+    Object? response,
+  ) async {
+    final id = payload['id'];
+    if (id is! String || response is! Map<String, dynamic>) return;
+    await localDataSource.applyServerCopy(id, response);
+  }
+}

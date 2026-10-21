@@ -1,0 +1,117 @@
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/network/network.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:{{package}}/features/processing_queue/processing_queue.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/helpers.dart';
+
+class _MockNetworkInfo extends Mock implements NetworkInfoInter {}
+
+class _MockOutbox extends Mock implements QueueOutboxInter {}
+
+void main() {
+  late AppDatabase database;
+  late FeedbackLocalDataSourceImpl local;
+  late ProcessingQueueLocalDataSourceImpl queueLocal;
+  late _MockNetworkInfo networkInfo;
+  late ProcessingQueueRepositoryImpl queue;
+  late FeedbackRepositoryImpl repository;
+
+  const params = SendFeedbackParams(
+    category: FeedbackCategory.content,
+    description: 'La canción se corta al minuto',
+  );
+
+  setUp(() async {
+    database = await openTestDatabase();
+    local = FeedbackLocalDataSourceImpl(database: database);
+    queueLocal = ProcessingQueueLocalDataSourceImpl(database: database);
+    networkInfo = _MockNetworkInfo();
+    queue = ProcessingQueueRepositoryImpl(
+      handlers: QueueHandlerRegistry(const [
+        AcceptingQueueHandler(CreateFeedbackQueueHandler.code),
+      ]),
+      localDataSource: queueLocal,
+      networkInfo: networkInfo,
+      unitOfWork: database,
+      releaseOnEnqueue: false,
+    );
+    repository = FeedbackRepositoryImpl(
+      localDataSource: local,
+      outbox: queue,
+      unitOfWork: database,
+    );
+  });
+
+  tearDown(() => database.close());
+
+  test('stores the report and enqueues it, never calling the API', () async {
+    final sent = (await repository.sendFeedback(
+      params,
+    )).getOrElse(() => throw StateError('not sent'));
+
+    final queued = (await queueLocal.getById(sent.queueId))!;
+    expect(sent.description, 'La canción se corta al minuto');
+    expect(queued.status, QueueSyncStatus.incomplete);
+    expect(queued.operation, CreateFeedbackQueueHandler.code);
+    expect(queued.payload['id'], sent.id);
+    expect(queued.payload['category'], 'content');
+    expect(queued.payload['description'], 'La canción se corta al minuto');
+  });
+
+  test('the report shows the status of its queue item', () async {
+    when(() => networkInfo.isConnected).thenAnswer((_) async => false);
+    await repository.sendFeedback(params);
+
+    var listed = await local.watchAll().first;
+    expect(listed.single.category, FeedbackCategory.content);
+    expect(listed.single.syncStatus, QueueSyncStatus.incomplete);
+
+    // The connection is back: the queue is released.
+    when(() => networkInfo.isConnected).thenAnswer((_) async => true);
+    await queue.releaseQueue();
+
+    listed = await local.watchAll().first;
+    expect(listed.single.syncStatus, QueueSyncStatus.done);
+  });
+
+  test('undoes the report when it cannot be enqueued', () async {
+    final failingOutbox = _MockOutbox();
+    when(
+      () => failingOutbox.enqueue(
+        id: any(named: 'id'),
+        operation: any(named: 'operation'),
+        payload: any(named: 'payload'),
+      ),
+    ).thenAnswer(
+      (_) async => const Left(CacheFailure(message: 'disk full')),
+    );
+    repository = FeedbackRepositoryImpl(
+      localDataSource: local,
+      outbox: failingOutbox,
+      unitOfWork: database,
+    );
+
+    final result = await repository.sendFeedback(params);
+
+    expect(
+      result,
+      const Left<Failure, FeedbackEntity>(CacheFailure(message: 'disk full')),
+    );
+    expect(await local.watchAll().first, isEmpty);
+  });
+
+  test('watchFeedback emits the reports as entities', () async {
+    await repository.sendFeedback(params);
+
+    final result = await repository.watchFeedback().first;
+
+    final items = result.getOrElse(() => throw StateError('$result'));
+    expect(items.single.description, 'La canción se corta al minuto');
+  });
+}

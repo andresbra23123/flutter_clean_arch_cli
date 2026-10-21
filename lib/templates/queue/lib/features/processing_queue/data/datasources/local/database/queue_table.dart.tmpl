@@ -1,0 +1,171 @@
+// ─────────────────────────────────────────────────────────────
+// QueueColumns / QueueTable
+// Names and queries of the processing_queue table. Rows in, rows out:
+// the data source converts them to models, handles errors and
+// notifies changes. The schema itself is created in
+// processing_queue_schema.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+
+/// Columns of the `processing_queue` table: every operation that must
+/// reach the API goes through it first, with or without internet.
+///
+/// The table name, [id] and [status] are shared with the other features
+/// through [QueueSyncColumns], so they are defined there.
+abstract final class QueueColumns {
+  /// Table name.
+  static const String tableName = QueueSyncColumns.queueTable;
+
+  /// Primary key (uuid). Also sent as the `Idempotency-Key` header.
+  static const String id = QueueSyncColumns.queueId;
+
+  /// Code of the operation, e.g. `transaction.create`. The HTTP method and
+  /// path are not stored: they are resolved from it when the item is sent.
+  static const String operation = 'operation';
+
+  /// Data of the operation, encoded as JSON.
+  static const String payload = 'payload';
+
+  /// incomplete, processing, done or error.
+  static const String status = QueueSyncColumns.queueStatus;
+
+  /// How many times sending it failed.
+  static const String attempts = 'attempts';
+
+  /// Message of the last failure.
+  static const String lastError = 'last_error';
+
+  /// Priority, stored with `QueuePriorityDb.toDb`: higher is sent first.
+  static const String priority = 'priority';
+
+  /// Creation time, in milliseconds since epoch. Defines the FIFO order
+  /// among items of the same [priority].
+  static const String createdAt = 'created_at';
+
+  /// Last status change, in milliseconds since epoch.
+  static const String updatedAt = 'updated_at';
+
+  /// When the item reached `done`, in milliseconds since epoch.
+  static const String processedAt = 'processed_at';
+
+  /// Every column, in table order.
+  static const List<String> all = [
+    id,
+    operation,
+    payload,
+    status,
+    priority,
+    attempts,
+    lastError,
+    createdAt,
+    updatedAt,
+    processedAt,
+  ];
+}
+
+/// Operations on the `processing_queue` table.
+abstract final class QueueTable {
+  static const String _table = QueueColumns.tableName;
+
+  /// Inserts [row].
+  static Future<void> insert(
+    DatabaseExecutor db,
+    Map<String, Object?> row,
+  ) => db.insert(_table, row);
+
+  /// The item [id], or `null` if it does not exist.
+  static Future<Map<String, Object?>?> findById(
+    DatabaseExecutor db,
+    String id,
+  ) async {
+    final rows = await db.query(
+      _table,
+      where: '${QueueColumns.id} = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.firstOrNull;
+  }
+
+  /// Every item, newest first.
+  static Future<List<Map<String, Object?>>> findAll(DatabaseExecutor db) =>
+      db.query(_table, orderBy: '${QueueColumns.createdAt} DESC');
+
+  /// Up to [limit] items in [status], highest priority first and oldest
+  /// first within a priority (FIFO), skipping [excludeIds].
+  static Future<List<Map<String, Object?>>> findByStatus(
+    DatabaseExecutor db,
+    String status, {
+    int limit = 50,
+    Set<String> excludeIds = const {},
+  }) {
+    final exclude = excludeIds.isEmpty
+        ? ''
+        : ' AND ${QueueColumns.id} NOT IN (${_placeholders(excludeIds)})';
+    return db.query(
+      _table,
+      where: '${QueueColumns.status} = ?$exclude',
+      whereArgs: [status, ...excludeIds],
+      orderBy: '${QueueColumns.priority} DESC, ${QueueColumns.createdAt} ASC',
+      limit: limit,
+    );
+  }
+
+  /// How many items are in [status].
+  static Future<int> countByStatus(DatabaseExecutor db, String status) async {
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS total FROM $_table '
+      'WHERE ${QueueColumns.status} = ?',
+      [status],
+    );
+    return rows.first['total']! as int;
+  }
+
+  /// Writes [values] on the item [id]. Returns how many rows changed.
+  static Future<int> update(
+    DatabaseExecutor db,
+    String id,
+    Map<String, Object?> values,
+  ) => db.update(
+    _table,
+    values,
+    where: '${QueueColumns.id} = ?',
+    whereArgs: [id],
+  );
+
+  /// Writes [values] on every item in [status], or only on [ids] among
+  /// them. Returns how many rows changed.
+  static Future<int> updateByStatus(
+    DatabaseExecutor db,
+    String status,
+    Map<String, Object?> values, {
+    Set<String>? ids,
+  }) {
+    final byId = ids == null
+        ? ''
+        : ' AND ${QueueColumns.id} IN (${_placeholders(ids)})';
+    return db.update(
+      _table,
+      values,
+      where: '${QueueColumns.status} = ?$byId',
+      whereArgs: [status, ...?ids],
+    );
+  }
+
+  /// Deletes the items in [status] processed before [before]. Returns how
+  /// many were deleted.
+  static Future<int> deleteProcessedBefore(
+    DatabaseExecutor db,
+    String status,
+    DateTime before,
+  ) => db.delete(
+    _table,
+    where: '${QueueColumns.status} = ? AND ${QueueColumns.processedAt} < ?',
+    whereArgs: [status, before.millisecondsSinceEpoch],
+  );
+
+  static String _placeholders(Set<String> values) =>
+      List.filled(values.length, '?').join(', ');
+}

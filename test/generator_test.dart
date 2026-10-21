@@ -85,6 +85,7 @@ void main() {
       ]),
     );
     expect(paths.any((p) => p.contains('features/auth')), isFalse);
+    expect(paths.any((p) => p.contains('processing_queue')), isFalse);
     // Endpoint paths live in each feature, not in core.
     expect(paths, isNot(contains('lib/core/api/api_endpoints.dart')));
     expectClean(files);
@@ -318,6 +319,45 @@ void main() {
     );
 
     final arbs = generator.render('auth_l10n', vars);
+    expect(arbs.map((f) => f.relativePath), ['app_en.arb', 'app_es.arb']);
+    expectClean(arbs);
+  });
+
+  test('queue renders the queue, its examples and their tests', () {
+    final vars = {
+      'package': 'demo_app',
+      'todoTag': 'demo-app',
+      'appTitle': 'Demo App',
+    };
+    final files = generator.render('queue', vars);
+    final paths = files.map((f) => f.relativePath).toSet();
+
+    expect(
+      paths,
+      containsAll([
+        'lib/core/database/database.dart',
+        'lib/core/queue_sync/queue_sync.dart',
+        'lib/features/processing_queue/processing_queue.dart',
+        'lib/features/processing_queue/processing_queue_injection.dart',
+        'lib/features/transactions/transactions.dart',
+        'lib/features/feedback/feedback.dart',
+        'test/helpers/fake_api.dart',
+        'test/features/processing_queue/data/queue_sync_service_test.dart',
+      ]),
+    );
+    // helpers.dart belongs to init: the installer only adds exports.
+    expect(paths, isNot(contains('test/helpers/helpers.dart')));
+    expectClean(files);
+    expectBarrels(paths.where((path) => path.startsWith('lib/')).toSet());
+    for (final f in files) {
+      expect(
+        f.content,
+        isNot(contains('package:processing_queue/')),
+        reason: f.relativePath,
+      );
+    }
+
+    final arbs = generator.render('queue_l10n', vars);
     expect(arbs.map((f) => f.relativePath), ['app_en.arb', 'app_es.arb']);
     expectClean(arbs);
   });

@@ -1,0 +1,33 @@
+// ─────────────────────────────────────────────────────────────
+// PaymentEntity
+// A payment received with a delivery. Generated from the API JSON by
+// `flutter_clean_arch model`.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:equatable/equatable.dart';
+
+/// Payment as the domain layer sees it.
+class PaymentEntity extends Equatable {
+  /// Creates the payment entity.
+  const PaymentEntity({
+    required this.method,
+    required this.paid,
+    this.idAccount,
+    this.date,
+  });
+
+  /// How it was paid, e.g. `cash` or `transfer`.
+  final String method;
+
+  /// Amount paid, as the API sends it.
+  final String paid;
+
+  /// Bank account that received it, for transfers.
+  final String? idAccount;
+
+  /// When it was paid.
+  final DateTime? date;
+
+  @override
+  List<Object?> get props => [method, paid, idAccount, date];
+}

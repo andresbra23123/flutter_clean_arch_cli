@@ -1,0 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// FeatureSchema
+// The tables of one feature and their ordered migrations. Each feature
+// owns its schema
+// (data/datasources/local/database/<feature>_schema.dart); core only
+// runs the pending migrations of the schemas the composition root
+// (core/di) hands to AppDatabase.open().
+//
+// Rules for the migrations of a schema:
+//  - Never edit a migration that was already released: devices that
+//    ran it will never run it again. To change the schema, append a new
+//    one (_v2, _v3…).
+//  - Write the SQL literally. Do not use the Columns constants: they
+//    describe the current schema, and an old migration must keep
+//    producing the schema of its own version.
+//  - No `IF NOT EXISTS`: a migration must fail if the schema is not the
+//    one it expects.
+//  - Touch only the tables of the feature. Other features are joined in
+//    queries, never in a migration.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:sqflite/sqflite.dart';
+
+/// One schema change. Migration `n` (1-based) moves its schema from
+/// version `n - 1` to version `n`.
+typedef Migration = Future<void> Function(DatabaseExecutor db);
+
+/// Tables of one feature, versioned on their own.
+class FeatureSchema {
+  /// Creates the schema [name] with its ordered [migrations].
+  const FeatureSchema({required this.name, required this.migrations});
+
+  /// Stable key of the feature in `schema_versions`. Never change it once
+  /// released: its stored version would be lost and the migrations run
+  /// again.
+  final String name;
+
+  /// Every migration of the feature. Position + 1 is its version.
+  final List<Migration> migrations;
+
+  /// Current version of the schema.
+  int get version => migrations.length;
+}

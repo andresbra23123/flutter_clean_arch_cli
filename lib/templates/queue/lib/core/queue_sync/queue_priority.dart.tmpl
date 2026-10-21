@@ -1,0 +1,41 @@
+// ─────────────────────────────────────────────────────────────
+// QueuePriority
+// Which items of the processing queue are sent first, and how it is
+// stored in SQLite. Each QueueHandler declares the priority of its
+// operation; an enqueue may override it for one item.
+// ─────────────────────────────────────────────────────────────
+
+/// How soon an item is sent compared to the others.
+///
+/// The queue sends the higher priorities first and, within the same
+/// priority, the oldest items first (FIFO). Operations that depend on
+/// each other must share a priority, or the one sent first must have a
+/// higher one.
+enum QueuePriority {
+  /// Sent after everything else (e.g. problem reports).
+  low,
+
+  /// Default priority.
+  normal,
+
+  /// Sent before everything else (e.g. transactions).
+  high,
+}
+
+/// Conversion of a [QueuePriority] to its stored value.
+extension QueuePriorityDb on QueuePriority {
+  /// Value stored in the database: higher is sent first. Never change it
+  /// once released.
+  int toDb() => switch (this) {
+    QueuePriority.low => 0,
+    QueuePriority.normal => 1,
+    QueuePriority.high => 2,
+  };
+}
+
+/// Parses a [QueuePriority] stored with [QueuePriorityDb.toDb];
+/// [QueuePriority.normal] when it is unknown.
+QueuePriority queuePriorityFromDb(int value) => QueuePriority.values.firstWhere(
+  (priority) => priority.toDb() == value,
+  orElse: () => QueuePriority.normal,
+);

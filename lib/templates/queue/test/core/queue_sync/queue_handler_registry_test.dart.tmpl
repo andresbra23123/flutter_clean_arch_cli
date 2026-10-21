@@ -1,0 +1,46 @@
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class _Handler extends QueueHandler {
+  const _Handler(this.operation);
+
+  @override
+  final String operation;
+
+  @override
+  Future<Object?> send(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  ) async => null;
+}
+
+void main() {
+  test('returns the handler of each registered operation', () {
+    const a = _Handler('a.create');
+    const b = _Handler('b.create');
+    final registry = QueueHandlerRegistry([a])..register(b);
+
+    expect(registry.handlerFor('a.create'), same(a));
+    expect(registry.handlerFor('b.create'), same(b));
+  });
+
+  test('returns null for an operation nobody registered', () {
+    expect(QueueHandlerRegistry().handlerFor('a.create'), isNull);
+  });
+
+  test('two handlers for one operation is an error', () {
+    final registry = QueueHandlerRegistry([const _Handler('a.create')]);
+
+    expect(
+      () => registry.register(const _Handler('a.create')),
+      throwsStateError,
+    );
+  });
+
+  test('a status is stored and read back by its name', () {
+    for (final status in QueueSyncStatus.values) {
+      expect(queueSyncStatusFromDb(status.toDb()), status);
+    }
+    expect(queueSyncStatusFromDb('unknown'), QueueSyncStatus.incomplete);
+  });
+}

@@ -1,0 +1,26 @@
+// ─────────────────────────────────────────────────────────────
+// PurgeDoneItemsUseCase
+// Deletes the processed items of the processing queue.
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Deletes the done items processed more than the given [Duration] ago,
+/// through the [ProcessingQueueRepositoryInter].
+class PurgeDoneItemsUseCaseImpl implements UseCaseInter<int, Duration> {
+  /// Creates the use case with the [repository] it uses.
+  PurgeDoneItemsUseCaseImpl({required this.repository});
+
+  /// Source of the processing_queue data.
+  final ProcessingQueueRepositoryInter repository;
+
+  /// Returns how many items were deleted, or a `Failure` if the queue
+  /// could not be updated.
+  @override
+  FutureEither<int> call(Duration params) {
+    return repository.purgeDoneItems(params);
+  }
+}

@@ -1,0 +1,40 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackEvent
+// Every event (user action or trigger) that FeedbackBloc can receive.
+// ─────────────────────────────────────────────────────────────
+
+part of 'feedback_bloc.dart';
+
+/// Base class for all feedback events.
+abstract class FeedbackEvent extends Equatable {
+  /// Base constructor for the subclasses.
+  const FeedbackEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Starts listening to the reports. Dispatched when the screen opens and
+/// to retry after a read failure.
+class FeedbackSubscriptionRequested extends FeedbackEvent {
+  /// Creates the event.
+  const FeedbackSubscriptionRequested();
+}
+
+/// The user submitted a new report.
+class FeedbackSendRequested extends FeedbackEvent {
+  /// Creates the event.
+  const FeedbackSendRequested({
+    required this.category,
+    required this.description,
+  });
+
+  /// What the report is about.
+  final FeedbackCategory category;
+
+  /// Text written by the user.
+  final String description;
+
+  @override
+  List<Object?> get props => [category, description];
+}

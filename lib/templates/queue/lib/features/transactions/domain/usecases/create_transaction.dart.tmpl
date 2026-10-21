@@ -1,0 +1,172 @@
+// ─────────────────────────────────────────────────────────────
+// CreateTransactionUseCase
+// Validates the result of an order (delivery, rejection…) and records
+// it. It goes to the processing queue first, with or without internet,
+// and reaches POST /works/transactions/store.
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/transactions/domain/domain.dart';
+
+/// Runs "create transaction" through the [TransactionsRepositoryInter].
+class CreateTransactionUseCaseImpl
+    implements UseCaseInter<TransactionEntity, CreateTransactionParams> {
+  /// Creates the use case with the [repository] it uses.
+  CreateTransactionUseCaseImpl({required this.repository});
+
+  /// Source of the transactions data.
+  final TransactionsRepositoryInter repository;
+
+  /// Returns the stored transaction, a [ValidationFailure] (see
+  /// [TransactionErrorCodes]) when [params] break a rule, or another
+  /// `Failure` if it could not be stored or enqueued.
+  ///
+  /// The repository receives the texts trimmed, blank ones as `null`.
+  @override
+  FutureEither<TransactionEntity> call(CreateTransactionParams params) async {
+    final invalidWork = RouteEventParams.validateWork(params.workId);
+    if (invalidWork != null) return Left(invalidWork);
+    if (params.status.isRouteEvent) {
+      return const Left(
+        ValidationFailure(
+          message: 'Use the start and end use cases for route events.',
+          code: TransactionErrorCodes.invalidStatus,
+        ),
+      );
+    }
+    return repository.createTransaction(
+      params.copyWith(
+        orderNumber: () => _clean(params.orderNumber),
+        observation: () => _clean(params.observation),
+      ),
+    );
+  }
+
+  /// [value] trimmed, or `null` when blank.
+  static String? _clean(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+}
+
+/// Result of an order to record.
+class CreateTransactionParams extends Equatable {
+  /// Creates the parameters.
+  const CreateTransactionParams({
+    required this.workId,
+    required this.status,
+    this.summaryId,
+    this.workcode,
+    this.orderNumber,
+    this.expedition,
+    this.payments = const [],
+    this.delivery,
+    this.observation,
+    this.images = const [],
+    this.firm,
+    this.operativeCenter,
+    this.start,
+    this.end,
+    this.latitude,
+    this.longitude,
+  });
+
+  /// Work (route) of the order.
+  final int workId;
+
+  /// Result of the order. Not a route event.
+  final TransactionStatus status;
+
+  /// Document (summary) of the order.
+  final int? summaryId;
+
+  /// Code of the work.
+  final String? workcode;
+
+  /// Order number.
+  final String? orderNumber;
+
+  /// Expedition of the order.
+  final String? expedition;
+
+  /// Payments received.
+  final List<PaymentEntity> payments;
+
+  /// Amount delivered.
+  final String? delivery;
+
+  /// Observation of the driver.
+  final String? observation;
+
+  /// Paths of the photos on the device.
+  final List<String> images;
+
+  /// Path of the signature on the device.
+  final String? firm;
+
+  /// Operative center of the work.
+  final String? operativeCenter;
+
+  /// When the action started.
+  final DateTime? start;
+
+  /// When it ended; now when `null`.
+  final DateTime? end;
+
+  /// Latitude where it was recorded.
+  final String? latitude;
+
+  /// Longitude where it was recorded.
+  final String? longitude;
+
+  /// Returns a copy with the given texts replaced (by the value returned
+  /// by their function, so they can be set to `null`).
+  CreateTransactionParams copyWith({
+    String? Function()? orderNumber,
+    String? Function()? observation,
+  }) {
+    return CreateTransactionParams(
+      workId: workId,
+      status: status,
+      summaryId: summaryId,
+      workcode: workcode,
+      orderNumber: orderNumber != null ? orderNumber() : this.orderNumber,
+      expedition: expedition,
+      payments: payments,
+      delivery: delivery,
+      observation: observation != null ? observation() : this.observation,
+      images: images,
+      firm: firm,
+      operativeCenter: operativeCenter,
+      start: start,
+      end: end,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    workId,
+    status,
+    summaryId,
+    workcode,
+    orderNumber,
+    expedition,
+    payments,
+    delivery,
+    observation,
+    images,
+    firm,
+    operativeCenter,
+    start,
+    end,
+    latitude,
+    longitude,
+  ];
+}

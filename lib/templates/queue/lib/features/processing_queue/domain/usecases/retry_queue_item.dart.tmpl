@@ -1,0 +1,27 @@
+// ─────────────────────────────────────────────────────────────
+// RetryQueueItemUseCase
+// Sends again a queue item that ended in error.
+// Called from a BLoC; the UI never calls the repository directly.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/usecases/usecases.dart';
+import 'package:{{package}}/features/processing_queue/domain/domain.dart';
+
+/// Moves a failed item back to the queue through the
+/// [ProcessingQueueRepositoryInter]. The params are the item id.
+class RetryQueueItemUseCaseImpl implements UseCaseInter<Unit, String> {
+  /// Creates the use case with the [repository] it uses.
+  RetryQueueItemUseCaseImpl({required this.repository});
+
+  /// Source of the processing_queue data.
+  final ProcessingQueueRepositoryInter repository;
+
+  /// Returns [unit], or a `Failure` if the item does not exist or could
+  /// not be updated.
+  @override
+  FutureEither<Unit> call(String params) {
+    return repository.retryQueueItem(params);
+  }
+}

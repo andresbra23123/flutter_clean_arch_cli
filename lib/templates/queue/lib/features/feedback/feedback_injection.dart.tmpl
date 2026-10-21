@@ -1,0 +1,58 @@
+// ─────────────────────────────────────────────────────────────
+// Feedback dependency injection
+// Registers every dependency of the feedback feature.
+// Called from initDependencies() in core/di/injection_container.dart.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+import 'package:{{package}}/features/feedback/presentation/presentation.dart';
+
+/// Registers the BLoC, use cases, repository, data sources and queue
+/// handler of the feedback feature.
+///
+/// Needs `ApiClient`, `AppDatabase`, `UnitOfWork`, `QueueOutboxInter` and the
+/// `QueueHandlerRegistry`. The reports reach the API only through the
+/// processing queue: [CreateFeedbackQueueHandler] sends them with the
+/// remote data source.
+/// Contracts are registered with their `Inter` type, so the
+/// implementations can be swapped (e.g. for mocks in tests).
+void initFeedbackDependencies() {
+  getIt
+    // ── Presentation ────────────────────────────────────────
+    // Factory: a new BLoC every time a screen asks for one.
+    ..registerFactory(
+      () => FeedbackBloc(watchFeedback: getIt(), sendFeedback: getIt()),
+    )
+    // flutter_clean_arch:blocs
+    // ── Domain ──────────────────────────────────────────────
+    // Lazy singletons: created once, the first time they are needed.
+    ..registerLazySingleton(
+      () => SendFeedbackUseCaseImpl(repository: getIt()),
+    )
+    ..registerLazySingleton(
+      () => WatchFeedbackUseCaseImpl(repository: getIt()),
+    )
+    // flutter_clean_arch:usecases
+    // ── Data ────────────────────────────────────────────────
+    ..registerLazySingleton<FeedbackRepositoryInter>(
+      () => FeedbackRepositoryImpl(
+        localDataSource: getIt(),
+        outbox: getIt(),
+        unitOfWork: getIt(),
+      ),
+    )
+    ..registerLazySingleton<FeedbackRemoteDataSourceInter>(
+      () => FeedbackRemoteDataSourceImpl(apiClient: getIt()),
+    )
+    ..registerLazySingleton<FeedbackLocalDataSourceInter>(
+      () => FeedbackLocalDataSourceImpl(database: getIt()),
+    );
+
+  // How the queue sends the reports: to /feedback.
+  getIt<QueueHandlerRegistry>().register(
+    CreateFeedbackQueueHandler(remoteDataSource: getIt()),
+  );
+}

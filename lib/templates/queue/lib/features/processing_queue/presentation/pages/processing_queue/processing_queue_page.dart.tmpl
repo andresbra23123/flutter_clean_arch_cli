@@ -1,0 +1,139 @@
+// ─────────────────────────────────────────────────────────────
+// ProcessingQueuePage
+// Shows the processing queue: connection, items by status, and the
+// actions to release the queue, retry failed items and clear the
+// processed ones.
+// ProcessingQueuePage provides the BLoC; ProcessingQueueView builds the UI.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:{{package}}/core/di/di.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/router/router.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/processing_queue/presentation/presentation.dart';
+
+/// Entry point of the processing queue screen.
+class ProcessingQueuePage extends StatelessWidget {
+  /// Creates the processing queue page.
+  const ProcessingQueuePage({super.key});
+
+  /// Route path of this page, registered in AppRouter.
+  static const String routeName = AppRoutes.processingQueue;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) =>
+          getIt<ProcessingQueueBloc>()..add(const QueueSubscriptionRequested()),
+      child: const ProcessingQueueView(),
+    );
+  }
+}
+
+/// UI of the processing queue screen. Reads the [ProcessingQueueBloc]
+/// provided by [ProcessingQueuePage].
+class ProcessingQueueView extends StatelessWidget {
+  /// Creates the processing queue view.
+  const ProcessingQueueView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.queueTitle),
+        actions: [
+          IconButton(
+            tooltip: l10n.queueRetryFailedButton,
+            icon: const Icon(Icons.replay),
+            onPressed: () => context.read<ProcessingQueueBloc>().add(
+              const QueueFailedRetryRequested(),
+            ),
+          ),
+          IconButton(
+            tooltip: l10n.queuePurgeDoneButton,
+            icon: const Icon(Icons.cleaning_services_outlined),
+            onPressed: () => context.read<ProcessingQueueBloc>().add(
+              const QueueDonePurgeRequested(),
+            ),
+          ),
+        ],
+      ),
+      body: BlocConsumer<ProcessingQueueBloc, ProcessingQueueState>(
+        listenWhen: (previous, current) =>
+            previous.failureMessage != current.failureMessage ||
+            previous.releaseResult != current.releaseResult,
+        listener: (context, state) {
+          final failure = state.failureMessage;
+          final summary = state.releaseResult;
+          if (failure != null) {
+            AppUtils.showSnackBar(context, failure, isError: true);
+          } else if (summary != null) {
+            AppUtils.showSnackBar(
+              context,
+              l10n.queueReleaseSummary(
+                summary.done,
+                summary.failed,
+                summary.pending,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          return Column(
+            children: [
+              ConnectionBanner(isConnected: state.isConnected),
+              const QueueFilterBar(),
+              const Divider(height: 1),
+              Expanded(child: _QueueList(state: state)),
+            ],
+          );
+        },
+      ),
+      floatingActionButton:
+          BlocSelector<ProcessingQueueBloc, ProcessingQueueState, bool>(
+            selector: (state) => state.isReleasing,
+            builder: (context, isReleasing) => FloatingActionButton.extended(
+              onPressed: isReleasing
+                  ? null
+                  : () => context.read<ProcessingQueueBloc>().add(
+                      const QueueReleaseRequested(),
+                    ),
+              icon: isReleasing
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(l10n.queueReleaseButton),
+            ),
+          ),
+    );
+  }
+}
+
+class _QueueList extends StatelessWidget {
+  const _QueueList({required this.state});
+
+  final ProcessingQueueState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.status == ProcessingQueueViewStatus.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final items = state.visibleItems;
+    if (items.isEmpty) {
+      return Center(child: Text(context.l10n.queueEmpty));
+    }
+    return ListView.separated(
+      // Room for the floating action button.
+      padding: const EdgeInsets.only(bottom: 88),
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (_, index) => QueueItemTile(item: items[index]),
+    );
+  }
+}

@@ -1,0 +1,82 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackRepositoryImpl
+// Implements the domain repository contract. Every new report is
+// stored locally and added to the processing queue; the queue sends it
+// to the API when there is a connection (see CreateFeedbackQueueHandler).
+// ─────────────────────────────────────────────────────────────
+
+// Only the contract: the repository never sees the database.
+import 'package:{{package}}/core/database/unit_of_work.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/core/utils/utils.dart';
+import 'package:{{package}}/features/feedback/data/data.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// [FeedbackRepositoryInter] implementation on top of the device and the
+/// processing queue.
+class FeedbackRepositoryImpl implements FeedbackRepositoryInter {
+  /// Creates the repository with its data source and the queue.
+  FeedbackRepositoryImpl({
+    required this.localDataSource,
+    required this.outbox,
+    required this.unitOfWork,
+    this.ids = const UuidIdGenerator(),
+    this.clock = const SystemClock(),
+  });
+
+  /// Stores the reports on the device.
+  final FeedbackLocalDataSourceInter localDataSource;
+
+  /// Processing queue that sends the reports to the API.
+  final QueueOutboxInter outbox;
+
+  /// Stores a report and its queue item atomically.
+  final UnitOfWork unitOfWork;
+
+  /// Creates the ids of the new records and their queue items.
+  final IdGeneratorInter ids;
+
+  /// Tells when a record is created.
+  final ClockInter clock;
+
+  // ── Local ───────────────────────────────────────────────────
+
+  @override
+  // Explicit type: the Right must hold entities, not models.
+  StreamEither<List<FeedbackEntity>> watchFeedback() =>
+      StreamEitherX<List<FeedbackEntity>>(localDataSource.watchAll()).toEither(
+        (error) => CacheFailure(
+          message: error is CacheException ? error.message : '$error',
+        ),
+      );
+
+  // ── Queued: stored now, sent later by the queue ─────────────
+
+  @override
+  FutureEither<FeedbackEntity> sendFeedback(SendFeedbackParams params) async {
+    final feedback = FeedbackModel(
+      id: ids.next(),
+      category: params.category,
+      description: params.description,
+      createdAt: clock.now(),
+      queueId: ids.next(),
+    );
+
+    // Stored and enqueued together or not at all: a report without its
+    // queue item would never be sent.
+    return unitOfWork.runEither(() async {
+      await localDataSource.insert(feedback);
+      // Always through the queue, with or without internet.
+      final queued = await outbox.enqueue(
+        id: feedback.queueId,
+        operation: CreateFeedbackQueueHandler.code,
+        payload: feedback.toJson(),
+      );
+      return queued.map<FeedbackEntity>((_) => feedback);
+    });
+  }
+
+  // flutter_clean_arch:repository-methods
+}

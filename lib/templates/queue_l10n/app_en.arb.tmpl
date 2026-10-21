@@ -1,0 +1,233 @@
+{
+    "queueTitle": "Processing queue",
+    "@queueTitle": {
+        "description": "Title of the processing queue page"
+    },
+    "queueOnline": "Online: the queue is released automatically.",
+    "@queueOnline": {
+        "description": "Banner shown on the queue page when there is internet"
+    },
+    "queueOffline": "Offline: everything to send is retained in the queue until the connection is back.",
+    "@queueOffline": {
+        "description": "Banner shown on the queue page without internet"
+    },
+    "queueReleaseButton": "Release queue",
+    "@queueReleaseButton": {
+        "description": "Button that sends the pending items now"
+    },
+    "queueRetryFailedButton": "Retry failed",
+    "@queueRetryFailedButton": {
+        "description": "Button that sends every failed item again"
+    },
+    "queuePurgeDoneButton": "Clear processed",
+    "@queuePurgeDoneButton": {
+        "description": "Button that deletes the processed items"
+    },
+    "queueRetryItem": "Retry",
+    "@queueRetryItem": {
+        "description": "Tooltip of the button that sends one failed item again"
+    },
+    "queueEmpty": "There are no items in the queue.",
+    "@queueEmpty": {
+        "description": "Shown when the queue (or the filter) has no items"
+    },
+    "queueFilterAll": "All ({count})",
+    "@queueFilterAll": {
+        "description": "Filter chip that shows every item",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "queueStatusIncomplete": "Incomplete",
+    "@queueStatusIncomplete": {
+        "description": "Queue status: waiting to be sent"
+    },
+    "queueStatusProcessing": "Processing",
+    "@queueStatusProcessing": {
+        "description": "Queue status: being sent"
+    },
+    "queueStatusDone": "Done",
+    "@queueStatusDone": {
+        "description": "Queue status: accepted by the API"
+    },
+    "queueStatusError": "Error",
+    "@queueStatusError": {
+        "description": "Queue status: rejected or out of attempts"
+    },
+    "queueAttempts": "Attempts: {count}",
+    "@queueAttempts": {
+        "description": "Failed attempts of a queue item",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "queueReleaseSummary": "Done: {done} · Errors: {failed} · Pending: {pending}",
+    "@queueReleaseSummary": {
+        "description": "Result of releasing the queue",
+        "placeholders": {
+            "done": {
+                "type": "int"
+            },
+            "failed": {
+                "type": "int"
+            },
+            "pending": {
+                "type": "int"
+            }
+        }
+    },
+    "transactionsTitle": "Transactions",
+    "@transactionsTitle": {
+        "description": "Title of the transactions page"
+    },
+    "transactionsEmpty": "There are no transactions yet.",
+    "@transactionsEmpty": {
+        "description": "Shown when there are no transactions"
+    },
+    "transactionsAdd": "New transaction",
+    "@transactionsAdd": {
+        "description": "Button and dialog title to create a transaction"
+    },
+    "transactionStatusLabel": "Type",
+    "@transactionStatusLabel": {
+        "description": "Label of the transaction type selector"
+    },
+    "transactionWorkIdLabel": "Route (ID)",
+    "@transactionWorkIdLabel": {
+        "description": "Label of the route id field"
+    },
+    "transactionOrderNumberLabel": "Order",
+    "@transactionOrderNumberLabel": {
+        "description": "Label of the order number field"
+    },
+    "transactionObservationLabel": "Observation",
+    "@transactionObservationLabel": {
+        "description": "Label of the observation field"
+    },
+    "transactionWork": "Route {workId}",
+    "@transactionWork": {
+        "description": "Route a transaction belongs to",
+        "placeholders": {
+            "workId": {
+                "type": "int"
+            }
+        }
+    },
+    "transactionStatusStart": "Route start",
+    "@transactionStatusStart": {
+        "description": "Transaction type start"
+    },
+    "transactionStatusEnd": "Route end",
+    "@transactionStatusEnd": {
+        "description": "Transaction type end"
+    },
+    "transactionStatusLoad": "Load",
+    "@transactionStatusLoad": {
+        "description": "Transaction type load"
+    },
+    "transactionStatusDelivery": "Delivery",
+    "@transactionStatusDelivery": {
+        "description": "Transaction type delivery"
+    },
+    "transactionStatusPartial": "Partial delivery",
+    "@transactionStatusPartial": {
+        "description": "Transaction type partial"
+    },
+    "transactionStatusPartialRespawn": "Partial, retry",
+    "@transactionStatusPartialRespawn": {
+        "description": "Transaction type partial_respawn"
+    },
+    "transactionStatusReject": "Rejection",
+    "@transactionStatusReject": {
+        "description": "Transaction type reject"
+    },
+    "transactionStatusRespawn": "Retry later",
+    "@transactionStatusRespawn": {
+        "description": "Transaction type respawn"
+    },
+    "transactionErrorInvalidWork": "Enter a valid route number",
+    "@transactionErrorInvalidWork": {
+        "description": "Error: invalid route id"
+    },
+    "transactionErrorInvalidStatus": "Use route start or end for that type",
+    "@transactionErrorInvalidStatus": {
+        "description": "Error: route type used as an order result"
+    },
+    "transactionSave": "Save",
+    "@transactionSave": {
+        "description": "Button that saves a transaction"
+    },
+    "transactionCancel": "Cancel",
+    "@transactionCancel": {
+        "description": "Button that closes the transaction dialog"
+    },
+    "transactionQueued": "Transaction saved in the processing queue.",
+    "@transactionQueued": {
+        "description": "Shown after a transaction is created"
+    },
+    "feedbackTitle": "Report problems",
+    "@feedbackTitle": {
+        "description": "Title of the problem reports page"
+    },
+    "feedbackEmpty": "You have not sent any reports yet.",
+    "@feedbackEmpty": {
+        "description": "Shown when there are no reports"
+    },
+    "feedbackAdd": "Report a problem",
+    "@feedbackAdd": {
+        "description": "Button and dialog title to create a report"
+    },
+    "feedbackCategoryLabel": "What is it about?",
+    "@feedbackCategoryLabel": {
+        "description": "Label of the category choice"
+    },
+    "feedbackCategoryBug": "Bug",
+    "@feedbackCategoryBug": {
+        "description": "Category: something does not work"
+    },
+    "feedbackCategorySuggestion": "Suggestion",
+    "@feedbackCategorySuggestion": {
+        "description": "Category: idea to improve the app"
+    },
+    "feedbackCategoryContent": "Content",
+    "@feedbackCategoryContent": {
+        "description": "Category: problem with a song or artist"
+    },
+    "feedbackCategoryOther": "Other",
+    "@feedbackCategoryOther": {
+        "description": "Category: anything else"
+    },
+    "feedbackDescriptionLabel": "Tell us what happened",
+    "@feedbackDescriptionLabel": {
+        "description": "Label of the report description field"
+    },
+    "feedbackDescriptionTooShort": "Write at least {min} characters",
+    "@feedbackDescriptionTooShort": {
+        "description": "Validation error: report description too short",
+        "placeholders": {
+            "min": {
+                "type": "int"
+            }
+        }
+    },
+    "feedbackSend": "Send",
+    "@feedbackSend": {
+        "description": "Button that sends a report"
+    },
+    "feedbackQueued": "Report saved in the processing queue.",
+    "@feedbackQueued": {
+        "description": "Shown after a report is created"
+    },
+    "feedbackRetry": "Retry",
+    "@feedbackRetry": {
+        "description": "Button to read the reports again after an error"
+    },
+    "validationDescriptionRequired": "Enter a description",
+    "@validationDescriptionRequired": {
+        "description": "Validation error: empty description"
+    }
+}

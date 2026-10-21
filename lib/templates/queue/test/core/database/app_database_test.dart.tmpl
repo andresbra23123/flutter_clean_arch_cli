@@ -1,0 +1,361 @@
+// Tests of the migration runner (core migrations and feature schemas)
+// and the change notifications of AppDatabase, with test migrations.
+// The real schemas are tested in migrations_test.dart.
+
+import 'dart:io';
+
+import 'package:{{package}}/core/database/database.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../../helpers/helpers.dart';
+
+void main() {
+  late Directory directory;
+  late String path;
+
+  setUpAll(sqfliteFfiInit);
+
+  setUp(() async {
+    directory = await Directory.systemTemp.createTemp('app_database_test');
+    path = '${directory.path}/app.db';
+  });
+
+  tearDown(() => directory.delete(recursive: true));
+
+  /// Opens the file database at [path] with the core [migrations] and
+  /// the feature [schemas].
+  Future<AppDatabase> open(
+    List<Migration> migrations, {
+    List<FeatureSchema> schemas = const [],
+  }) => AppDatabase.open(
+    schemas: schemas,
+    migrations: migrations,
+    path: path,
+    factory: databaseFactoryFfi,
+  );
+
+  Migration record(List<int> calls, int version) =>
+      (_) async => calls.add(version);
+
+  Future<bool> tableExists(Database db, String name) async => (await db.query(
+    'sqlite_master',
+    where: "type = 'table' AND name = ?",
+    whereArgs: [name],
+  )).isNotEmpty;
+
+  test('a new database runs every core and feature migration', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+
+    expect(await database.version, coreMigrations.length);
+    for (final schema in appSchemas) {
+      expect(await database.versionOf(schema.name), schema.version);
+    }
+  });
+
+  test('a new database runs every migration in order', () async {
+    final calls = <int>[];
+    final database = await open([record(calls, 1), record(calls, 2)]);
+    addTearDown(database.close);
+
+    expect(calls, [1, 2]);
+    expect(await database.version, 2);
+  });
+
+  test('an existing database runs only the pending migrations', () async {
+    final calls = <int>[];
+    await (await open([record(calls, 1)])).close();
+
+    final database = await open([record(calls, 1), record(calls, 2)]);
+    addTearDown(database.close);
+
+    expect(calls, [1, 2]);
+    expect(await database.version, 2);
+  });
+
+  test('a failed migration applies nothing and keeps the version', () async {
+    Future<void> v1(DatabaseExecutor db) =>
+        db.execute('CREATE TABLE a (id INTEGER)');
+    Future<void> v2(DatabaseExecutor db) async {
+      await db.execute('CREATE TABLE b (id INTEGER)');
+      throw StateError('boom');
+    }
+
+    await (await open([v1])).close();
+    await expectLater(open([v1, v2]), throwsStateError);
+
+    final database = await open([v1]);
+    addTearDown(database.close);
+    expect(await database.version, 1);
+    expect(await tableExists(database.db, 'a'), isTrue);
+    expect(await tableExists(database.db, 'b'), isFalse);
+  });
+
+  test('refuses a database newer than the app', () async {
+    final calls = <int>[];
+    await (await open([record(calls, 1), record(calls, 2)])).close();
+
+    await expectLater(open([record(calls, 1)]), throwsStateError);
+  });
+
+  group('feature schemas', () {
+    /// A schema [name] whose migrations record their version in [calls].
+    FeatureSchema schema(String name, int versions, List<String> calls) =>
+        FeatureSchema(
+          name: name,
+          migrations: [
+            for (var v = 1; v <= versions; v++)
+              (_) async => calls.add('$name v$v'),
+          ],
+        );
+
+    Future<AppDatabase> openWith(List<FeatureSchema> schemas) =>
+        open(coreMigrations, schemas: schemas);
+
+    test('each schema runs its migrations and keeps its version', () async {
+      final calls = <String>[];
+      final database = await openWith([
+        schema('a', 2, calls),
+        schema('b', 1, calls),
+      ]);
+      addTearDown(database.close);
+
+      expect(calls, ['a v1', 'a v2', 'b v1']);
+      expect(await database.versionOf('a'), 2);
+      expect(await database.versionOf('b'), 1);
+    });
+
+    test('on reopen only the pending migrations of each schema run', () async {
+      final calls = <String>[];
+      await (await openWith([schema('a', 1, calls)])).close();
+      calls.clear();
+
+      // A new migration of `a` and a whole new feature `b`.
+      final database = await openWith([
+        schema('a', 2, calls),
+        schema('b', 1, calls),
+      ]);
+      addTearDown(database.close);
+
+      expect(calls, ['a v2', 'b v1']);
+    });
+
+    test('a failed migration keeps the version of its schema', () async {
+      await (await openWith([schema('a', 1, [])])).close();
+      final failing = FeatureSchema(
+        name: 'a',
+        migrations: [
+          (_) async {},
+          (db) async {
+            await db.execute('CREATE TABLE half (id INTEGER)');
+            throw StateError('boom');
+          },
+        ],
+      );
+
+      await expectLater(openWith([failing]), throwsStateError);
+
+      final database = await openWith([schema('a', 1, [])]);
+      addTearDown(database.close);
+      expect(await database.versionOf('a'), 1);
+      expect(await tableExists(database.db, 'half'), isFalse);
+    });
+
+    test('refuses a schema newer than the app', () async {
+      await (await openWith([schema('a', 2, [])])).close();
+
+      await expectLater(openWith([schema('a', 1, [])]), throwsStateError);
+    });
+
+    test('two schemas with the same name is an error', () async {
+      await expectLater(
+        openWith([schema('a', 1, []), schema('a', 1, [])]),
+        throwsStateError,
+      );
+    });
+  });
+
+  test('foreign keys are enforced', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+
+    final rows = await database.db.rawQuery('PRAGMA foreign_keys');
+    expect(rows.single.values.single, 1);
+  });
+
+  test('watch runs the query again only for the watched tables', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+    var runs = 0;
+    final emitted = <int>[];
+    final subscription = database
+        .watch({'watched'}, () async => ++runs)
+        .listen(emitted.add);
+    addTearDown(subscription.cancel);
+
+    await pumpEventQueue();
+    database
+      ..notifyChange('other')
+      ..notifyChange('watched');
+    await pumpEventQueue();
+
+    expect(emitted, [1, 2]);
+  });
+
+  test('watch emits a query error and keeps going', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+    var fail = true;
+    final events = <Object>[];
+    final subscription = database
+        .watch({'t'}, () async {
+          if (fail) throw StateError('read failed');
+          return 'ok';
+        })
+        .listen(events.add, onError: events.add);
+    addTearDown(subscription.cancel);
+
+    await pumpEventQueue();
+    fail = false;
+    database.notifyChange('t');
+    await pumpEventQueue();
+
+    expect(events, [isA<StateError>(), 'ok']);
+  });
+
+  group('UnitOfWork', () {
+    late AppDatabase database;
+    late List<String> changes;
+
+    Future<void> insertA(DatabaseExecutor db, int id) =>
+        db.insert('a', {'id': id});
+
+    Future<int> countA() async => (await database.db.query('a')).length;
+
+    setUp(() async {
+      database = await openTestDatabase(
+        schemas: [
+          FeatureSchema(
+            name: 'test',
+            migrations: [
+              (db) => db.execute('CREATE TABLE a (id INTEGER PRIMARY KEY)'),
+            ],
+          ),
+        ],
+      );
+      changes = [];
+      database.changes.listen(changes.add);
+    });
+
+    tearDown(() => database.close());
+
+    test('a write outside run notifies right away', () async {
+      await database.write({'a'}, (db) => insertA(db, 1));
+      await pumpEventQueue();
+
+      expect(changes, ['a']);
+    });
+
+    test('run commits every write and notifies only after it', () async {
+      await database.run(() async {
+        await database.write({'a'}, (db) => insertA(db, 1));
+        await database.write({'a'}, (db) => insertA(db, 2));
+        // Inside the transaction: the writes are visible to read() (no
+        // deadlock) but not announced yet.
+        expect(await database.read((db) => db.query('a')), hasLength(2));
+        await pumpEventQueue();
+        expect(changes, isEmpty);
+      });
+      await pumpEventQueue();
+
+      expect(await countA(), 2);
+      expect(changes, ['a']);
+    });
+
+    test('an error rolls back every write and notifies nothing', () async {
+      var committed = false;
+      await expectLater(
+        database.run(() async {
+          await database.write({'a'}, (db) => insertA(db, 1));
+          database.afterCommit(() => committed = true);
+          throw StateError('boom');
+        }),
+        throwsStateError,
+      );
+      await pumpEventQueue();
+
+      expect(await countA(), 0);
+      expect(changes, isEmpty);
+      expect(committed, isFalse);
+    });
+
+    test('a nested run joins the outer transaction', () async {
+      await expectLater(
+        database.run(() async {
+          await database.run(
+            () => database.write({'a'}, (db) => insertA(db, 1)),
+          );
+          throw StateError('outer fails');
+        }),
+        throwsStateError,
+      );
+
+      expect(await countA(), 0);
+    });
+
+    test('afterCommit waits for the commit, or runs now outside run', () async {
+      final calls = <String>[];
+      database.afterCommit(() => calls.add('now'));
+      await database.run(() async {
+        database.afterCommit(() => calls.add('after commit'));
+        await database.write({'a'}, (db) => insertA(db, 1));
+        calls.add('inside');
+      });
+
+      expect(calls, ['now', 'inside', 'after commit']);
+    });
+
+    test('code started inside run uses the database once it ends', () async {
+      Future<void>? background;
+      await database.run(() async {
+        // A future that outlives the transaction (e.g. a background job).
+        background = Future<void>.delayed(
+          const Duration(milliseconds: 10),
+          () => database.write({'a'}, (db) => insertA(db, 9)),
+        );
+      });
+      await background;
+
+      expect(await countA(), 1);
+    });
+
+    test('runEither rolls back on a Left and keeps the failure', () async {
+      final result = await database.runEither<int>(() async {
+        await database.write({'a'}, (db) => insertA(db, 1));
+        return const Left(CacheFailure(message: 'not queued'));
+      });
+
+      expect(
+        result,
+        const Left<Failure, int>(CacheFailure(message: 'not queued')),
+      );
+      expect(await countA(), 0);
+    });
+
+    test('runEither returns a CacheException as a CacheFailure', () async {
+      final result = await database.runEither<int>(() async {
+        await database.write({'a'}, (db) => insertA(db, 1));
+        throw const CacheException(message: 'disk full');
+      });
+
+      expect(
+        result,
+        const Left<Failure, int>(CacheFailure(message: 'disk full')),
+      );
+      expect(await countA(), 0);
+    });
+  });
+}

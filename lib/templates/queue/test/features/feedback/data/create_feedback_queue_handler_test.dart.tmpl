@@ -1,0 +1,35 @@
+import 'package:{{package}}/core/queue_sync/queue_sync.dart';
+import 'package:{{package}}/features/feedback/feedback.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _MockRemote extends Mock implements FeedbackRemoteDataSourceInter {}
+
+void main() {
+  late _MockRemote remote;
+  late CreateFeedbackQueueHandler handler;
+
+  setUp(() {
+    remote = _MockRemote();
+    handler = CreateFeedbackQueueHandler(remoteDataSource: remote);
+  });
+
+  test('keeps the operation code of the items already queued', () {
+    // Changing it would strand every report waiting on the devices.
+    expect(handler.operation, 'feedback.create');
+  });
+
+  test('waits until the other operations are sent', () {
+    expect(handler.priority, QueuePriority.low);
+  });
+
+  test('sends the stored report through the remote data source', () async {
+    when(() => remote.sendFeedback(any(), any())).thenAnswer((_) async => null);
+
+    await handler.send('queue-id', const {'id': 'fb-1'});
+
+    verify(
+      () => remote.sendFeedback('queue-id', const {'id': 'fb-1'}),
+    ).called(1);
+  });
+}

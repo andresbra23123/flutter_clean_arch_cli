@@ -1,0 +1,124 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackFormDialog
+// Dialog to report a problem: category and description.
+// Returns the FeedbackSendRequested event, or null if cancelled.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/validation/validation.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+import 'package:{{package}}/features/feedback/presentation/presentation.dart';
+
+/// Form to report a problem.
+class FeedbackFormDialog extends StatefulWidget {
+  /// Creates the dialog.
+  const FeedbackFormDialog({super.key});
+
+  /// Shortest description accepted: the rule of the use case, checked here
+  /// too so the user sees it before submitting.
+  static const int minDescriptionLength =
+      SendFeedbackUseCaseImpl.minDescriptionLength;
+
+  /// Shows the dialog and returns the event to dispatch, or `null`.
+  static Future<FeedbackSendRequested?> show(BuildContext context) {
+    return showDialog<FeedbackSendRequested>(
+      context: context,
+      builder: (_) => const FeedbackFormDialog(),
+    );
+  }
+
+  @override
+  State<FeedbackFormDialog> createState() => _FeedbackFormDialogState();
+}
+
+class _FeedbackFormDialogState extends State<FeedbackFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _description = TextEditingController();
+  FeedbackCategory _category = FeedbackCategory.bug;
+
+  @override
+  void dispose() {
+    _description.dispose();
+    super.dispose();
+  }
+
+  String? _validateDescription(AppLocalizations l10n, String? value) {
+    if (value == null || ValidationRules.isBlank(value)) {
+      return l10n.validationDescriptionRequired;
+    }
+    if (value.trim().length < FeedbackFormDialog.minDescriptionLength) {
+      return l10n.feedbackDescriptionTooShort(
+        FeedbackFormDialog.minDescriptionLength,
+      );
+    }
+    return null;
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      FeedbackSendRequested(
+        category: _category,
+        description: _description.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.feedbackAdd),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.feedbackCategoryLabel,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final category in FeedbackCategory.values)
+                  ChoiceChip(
+                    avatar: Icon(feedbackCategoryIcon(category), size: 18),
+                    label: Text(feedbackCategoryLabel(l10n, category)),
+                    selected: _category == category,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _category = category),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _description,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 6,
+              maxLength: SendFeedbackUseCaseImpl.maxDescriptionLength,
+              decoration: InputDecoration(
+                labelText: l10n.feedbackDescriptionLabel,
+                alignLabelWithHint: true,
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              validator: (value) => _validateDescription(l10n, value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.transactionCancel),
+        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.feedbackSend)),
+      ],
+    );
+  }
+}

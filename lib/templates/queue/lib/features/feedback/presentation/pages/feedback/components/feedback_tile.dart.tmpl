@@ -1,0 +1,38 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackTile
+// One row of the reports list with its category and sync status.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:{{package}}/core/l10n/l10n.dart';
+import 'package:{{package}}/core/widgets/widgets.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+import 'package:{{package}}/features/feedback/presentation/presentation.dart';
+
+/// Shows a [FeedbackEntity].
+class FeedbackTile extends StatelessWidget {
+  /// Creates the tile for [feedback].
+  const FeedbackTile({required this.feedback, super.key});
+
+  /// Report to show.
+  final FeedbackEntity feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
+    final date = DateFormat.yMd(locale).add_Hm().format(feedback.createdAt);
+    final category = feedbackCategoryLabel(context.l10n, feedback.category);
+
+    return ListTile(
+      leading: FeedbackCategoryIcon(category: feedback.category),
+      title: Text(
+        feedback.description,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text('$category · $date'),
+      trailing: QueueSyncStatusBadge(status: feedback.syncStatus),
+    );
+  }
+}

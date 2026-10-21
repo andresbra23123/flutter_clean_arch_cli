@@ -16,6 +16,7 @@ class ProjectConfig {
     this.createdWith,
     this.lastModifiedWith,
     this.auth = false,
+    this.queue = false,
   });
 
   /// CLI version that ran `init`, if known.
@@ -27,13 +28,20 @@ class ProjectConfig {
   /// Whether the auth feature is installed.
   final bool auth;
 
+  /// Whether the processing queue is installed.
+  final bool queue;
+
   /// A copy with the given fields replaced.
-  ProjectConfig copyWith({String? lastModifiedWith, bool? auth}) =>
-      ProjectConfig(
-        createdWith: createdWith,
-        lastModifiedWith: lastModifiedWith ?? this.lastModifiedWith,
-        auth: auth ?? this.auth,
-      );
+  ProjectConfig copyWith({
+    String? lastModifiedWith,
+    bool? auth,
+    bool? queue,
+  }) => ProjectConfig(
+    createdWith: createdWith,
+    lastModifiedWith: lastModifiedWith ?? this.lastModifiedWith,
+    auth: auth ?? this.auth,
+    queue: queue ?? this.queue,
+  );
 }
 
 /// Reads [projectConfigFile] from the project at [root], or `null` if it
@@ -52,6 +60,7 @@ ProjectConfig? readProjectConfig(String root) {
     createdWith: yaml['created_with']?.toString(),
     lastModifiedWith: yaml['last_modified_with']?.toString(),
     auth: yaml['auth'] == true,
+    queue: yaml['queue'] == true,
   );
 }
 
@@ -61,6 +70,7 @@ void writeProjectConfig(String root, ProjectConfig config) {
 # Created by flutter_clean_arch. Keep it in version control: `doctor` uses
 # it to warn when the installed CLI and this project differ.
 ${config.createdWith == null ? '' : 'created_with: ${config.createdWith}\n'}${config.lastModifiedWith == null ? '' : 'last_modified_with: ${config.lastModifiedWith}\n'}auth: ${config.auth}
+queue: ${config.queue}
 ''');
 }
 

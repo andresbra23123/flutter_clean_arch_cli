@@ -1,0 +1,22 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackRemoteDataSourceInter (contract)
+// The requests the feedback feature makes to the API. Every one is
+// queued: the processing queue calls them through
+// CreateFeedbackQueueHandler, never the repository.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:{{package}}/core/errors/errors.dart';
+
+/// Remote API contract for the feedback feature.
+///
+/// Implementations throw a [NetworkException] when the API cannot be
+/// reached and a [ServerException] when it answers with an error.
+abstract interface class FeedbackRemoteDataSourceInter {
+  // ── Queued: only the processing queue calls these ─────────────
+
+  /// `POST /feedback`: a problem report. Returns the API answer.
+  Future<Object?> sendFeedback(
+    String idempotencyKey,
+    Map<String, dynamic> payload,
+  );
+}

@@ -1,0 +1,135 @@
+// ─────────────────────────────────────────────────────────────
+// Layer rules
+// Reads every import under lib/ and fails when one breaks the
+// dependency rule of Clean Architecture:
+//  - domain depends on nothing outside itself and core,
+//  - presentation and data never see each other,
+//  - a feature never imports another feature (only the presentation
+//    layer may use auth, the session of the app),
+//  - core never imports a feature, except the composition root
+//    (DI and router), which the flutter_clean_arch CLI edits.
+// ─────────────────────────────────────────────────────────────
+
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+const String _package = 'package:{{package}}/';
+
+/// Files of core allowed to import features: they wire the app together.
+const Set<String> _compositionRoot = {
+  'lib/core/di/injection_container.dart',
+  'lib/core/router/app_router.dart',
+};
+
+/// Features whose presentation layer any other feature may use: the
+/// session (`auth`) is app-wide, e.g. the sign-out button of home.
+const Set<String> _sharedFeatures = {'auth'};
+
+/// Packages the domain layer must never import.
+const List<String> _forbiddenInDomain = [
+  'package:flutter/',
+  'package:firebase_',
+  'package:sqflite',
+  'package:dio',
+  'package:get_it',
+  'package:flutter_bloc',
+];
+
+/// Violations that exist today and are being removed phase by phase.
+/// Each entry is `<file> -> <import>`. It must end up empty.
+const Set<String> _knownViolations = {};
+
+final RegExp _import = RegExp(r"^\s*(?:import|export)\s+'([^']+)'");
+
+void main() {
+  final files = Directory('lib')
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.dart'))
+      .map((file) => file.path.replaceAll(r'\', '/'))
+      .where((path) => !path.startsWith('lib/core/l10n/gen/'))
+      .toList();
+
+  final violations = <String>{};
+  for (final path in files) {
+    for (final line in File(path).readAsLinesSync()) {
+      final uri = _import.firstMatch(line)?.group(1);
+      if (uri == null) continue;
+      if (_violation(path, uri) != null) violations.add('$path -> $uri');
+    }
+  }
+
+  test('there are files to check', () {
+    expect(files, isNotEmpty);
+  });
+
+  test('no import breaks the dependency rule', () {
+    final unexpected = violations.difference(_knownViolations).toList()..sort();
+    expect(unexpected, isEmpty, reason: unexpected.join('\n'));
+  });
+
+  test('every known violation still exists (remove the fixed ones)', () {
+    final fixed = _knownViolations.difference(violations).toList()..sort();
+    expect(fixed, isEmpty, reason: fixed.join('\n'));
+  });
+}
+
+/// Why [uri], imported from [path], breaks a rule, or `null` if it does
+/// not.
+String? _violation(String path, String uri) {
+  final source = _Location.ofFile(path);
+  final target = uri.startsWith(_package)
+      ? _Location.ofFile('lib/${uri.substring(_package.length)}')
+      : null;
+
+  if (source.layer == 'domain') {
+    if (_forbiddenInDomain.any(uri.startsWith)) return 'domain -> $uri';
+    if (target != null &&
+        (target.layer == 'data' || target.layer == 'presentation')) {
+      return 'domain -> ${target.layer}';
+    }
+  }
+  if (target == null) return null;
+
+  if (source.layer == 'presentation' && target.layer == 'data') {
+    return 'presentation -> data';
+  }
+  if (source.layer == 'data' && target.layer == 'presentation') {
+    return 'data -> presentation';
+  }
+  if (source.feature != null &&
+      target.feature != null &&
+      source.feature != target.feature &&
+      !(source.layer == 'presentation' &&
+          _sharedFeatures.contains(target.feature))) {
+    return 'feature ${source.feature} -> feature ${target.feature}';
+  }
+  if (source.isCore &&
+      target.feature != null &&
+      !_compositionRoot.contains(path)) {
+    return 'core -> feature ${target.feature}';
+  }
+  return null;
+}
+
+/// Where a file lives: its feature (if any) and its layer (if any).
+class _Location {
+  const _Location({this.feature, this.layer, this.isCore = false});
+
+  factory _Location.ofFile(String path) {
+    final parts = path.split('/');
+    if (parts.length > 2 && parts[1] == 'core') {
+      return const _Location(isCore: true);
+    }
+    if (parts.length > 2 && parts[1] == 'features') {
+      final layer = parts.length > 4 ? parts[3] : null;
+      return _Location(feature: parts[2], layer: layer);
+    }
+    return const _Location();
+  }
+
+  final String? feature;
+  final String? layer;
+  final bool isCore;
+}

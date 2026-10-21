@@ -1,0 +1,32 @@
+// ─────────────────────────────────────────────────────────────
+// FeedbackRepositoryInter (contract)
+// Defines what the domain layer needs from the feedback data.
+// The domain depends only on this contract; the data layer
+// implements it in FeedbackRepositoryImpl.
+// ─────────────────────────────────────────────────────────────
+
+import 'package:dartz/dartz.dart';
+import 'package:{{package}}/core/errors/errors.dart';
+import 'package:{{package}}/core/type_defs/type_defs.dart';
+import 'package:{{package}}/features/feedback/domain/domain.dart';
+
+/// Feedback repository contract.
+///
+/// Implementations never throw: every error is returned as a [Failure] on
+/// the left side of the [Either].
+abstract interface class FeedbackRepositoryInter {
+  // ── Local: reads the device ─────────────────────────────────
+
+  /// Emits every report with the status of its queue item, newest first.
+  StreamEither<List<FeedbackEntity>> watchFeedback();
+
+  // ── Queued: stored now, sent to the API later by the queue ──
+
+  /// Stores a report. Sent to `POST /feedback` when there is a
+  /// connection.
+  ///
+  /// [params] arrive validated and trimmed by `SendFeedbackUseCaseImpl`.
+  FutureEither<FeedbackEntity> sendFeedback(SendFeedbackParams params);
+
+  // flutter_clean_arch:repository-methods
+}
